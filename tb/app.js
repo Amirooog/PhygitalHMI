@@ -1,9 +1,9 @@
 /* PhygitalHMI · Touch Baseline (TB) — app logic.
-   Screens: Home, Navigation, Media, Phone, Climate, Settings. Researcher mode and logging come next. */
+   Screens: Home, Navigation, Media, Phone, Climate, Settings. Researcher mode and trial logging live in ../shared/. */
 (() => {
 'use strict';
 
-const BUILD = { id: 'TB-3.0.0-dev.3', line: 'TB', name: 'Touch Baseline' };
+const BUILD = { id: 'TB-3.0.0-dev.4', line: 'TB', name: 'Touch Baseline' };
 
 /* ---------- preferences (per device) ---------- */
 const store = {
@@ -126,6 +126,7 @@ function fresh() {
   };
 }
 let S = fresh();
+const LOCK = { trial: false };   // set by the researcher mode while a trial runs
 
 /* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
@@ -647,6 +648,7 @@ function showVol() {
 }
 
 /* ---------- actions ---------- */
+const lockedNote = () => { if (!LOCK.trial) return false; toast(ms('lock'), 'Settings are locked during the test'); return true; };
 const ACT = {
   noop() {},
   go(v) { S.screen = v; S.sheet = null; $('#pop').hidden = true; },
@@ -747,10 +749,10 @@ const ACT = {
   csched(){ const c = S.car; c.schedule = !c.schedule; if (c.schedule) c.charging = false; },
   cport() { S.car.port = !S.car.port; toast(ms('ev_station'), S.car.port ? 'Charge port open' : 'Charge port closed'); },
 
-  theme(v) { PREF.theme = v; savePref(); },
-  accent(v) { if (ACCENTS[v]) { PREF.accent = v; savePref(); } },
-  safetop(v) { PREF.safeTop = clamp(PREF.safeTop + (v === '+' ? 4 : -4), 0, 80); savePref(); },
-  safebottom(v) { PREF.safeBottom = clamp(PREF.safeBottom + (v === '+' ? 4 : -4), -60, 60); savePref(); }
+  theme(v) { if (lockedNote()) return; PREF.theme = v; savePref(); },
+  accent(v) { if (lockedNote()) return; if (ACCENTS[v]) { PREF.accent = v; savePref(); } },
+  safetop(v) { if (lockedNote()) return; PREF.safeTop = clamp(PREF.safeTop + (v === '+' ? 4 : -4), 0, 80); savePref(); },
+  safebottom(v) { if (lockedNote()) return; PREF.safeBottom = clamp(PREF.safeBottom + (v === '+' ? 4 : -4), -60, 60); savePref(); }
 };
 
 $('#app').addEventListener('click', e => {
@@ -817,6 +819,17 @@ function navFrame(ts) {
   requestAnimationFrame(navFrame);
 }
 requestAnimationFrame(navFrame);
+
+/* ---------- interface for the shared researcher mode (../shared/researcher.js) ---------- */
+window.HMI = {
+  app: BUILD.line, build: BUILD.id,
+  root: $('#app'),
+  state: () => S,
+  data: { tracks: TRACKS },
+  prefs: () => ({ theme: themeNow(), accent: PREF.accent }),
+  lock: LOCK,
+  reset() { S = fresh(); lastScreen = null; lastLeg = -1; $('#pop').hidden = true; render(); }
+};
 
 window.addEventListener('resize', () => { if (S.screen === 'nav') render(); else document.querySelectorAll('.wheel').forEach(w => wheelTo(w, w.dataset.wheel === 'd' ? S.clim.dT : S.clim.pT)); });
 
