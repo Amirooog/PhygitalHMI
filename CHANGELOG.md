@@ -20,8 +20,19 @@ Rules
 - Digital layer: edge colour under the selected position, fading guide with all four positions and values, value pop-up above the knob.
 - The knob's mouse cannot click the screen and its cursor is hidden ("Knob only", Settings). Knob actions are logged per trial (knob_actions, first_knob_s, k: entries in the path); mouse input is not counted as touches in SK.
 - Tested headless with replayed iPad wheel events: T1, T2, T5 succeed by knob only.
+- dev.2 (14 Oct 2026): five positions and five gestures, left to right. This replaces the dev.1 layout (task path change for knob trials; do not pool dev.1 and dev.2 knob data).
+  | Position | Turn | Hold + turn | Hold (≥ 600 ms) | Press | Press twice |
+  |---|---|---|---|---|---|
+  | Driver climate | temperature (switches the zone on) | fan | zone on/off | seat heat | seat vent |
+  | Drive | drive mode (Range → Snow) | stability control Off/1/2/3 | Custom | – | – |
+  | Media | volume | next / previous | screen off / on | mute | – |
+  | Navigation | favourites (preview on the map) | nearest chargers | cancel preview / end route | start route | – |
+  | Passenger climate | as driver | | | | |
+  Double press is only read on the climate positions, so a single press there waits 300 ms. Slide is locked while the knob is held. The pop-up lists the gestures of a position when the knob arrives on it. Hold time and double-press window are adjustable in Settings; the "fourth position" setting is removed. Screen off is a black layer; the knob's pop-ups still show on it and a touch wakes it.
+  Tested headless (Playwright, replayed iPad notches, middle-button down/up timing): every gesture on all five positions; T1, T2, T3, T5, T10 succeed by knob only (0 touches).
 
 ## Shared code
+- TB-3.0.0-dev.6 / SK-1.0.0-dev.2: per-zone climate on/off (bar shows OFF), stability control (ESP Off/1/2/3, default 3) on the Vehicle drive tab, a Custom drive mode, two more charging stations, favourites and nearest-charger lists for the knob. TB tasks unchanged; all 9 rerun to success.
 - TB-3.0.0-dev.5: the app moved to shared/hmi.js and shared/hmi.css so TB and SK run identical code; each app sets its build in HMI_CONFIG.
 
 ## Earlier versions

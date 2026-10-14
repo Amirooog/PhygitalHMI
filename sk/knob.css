@@ -2,13 +2,13 @@
 html.knob-nocursor, html.knob-nocursor * { cursor: none !important; }
 
 /* edge colour: a strip on the screen's lower edge, right above the physical rail */
-#kEdge { position: fixed; left: 0; right: 0; bottom: 0; height: 6px; z-index: 60; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 6px; pointer-events: none; }
+#kEdge { position: fixed; left: 0; right: 0; bottom: 0; height: 6px; z-index: 60; display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 0 6px; pointer-events: none; }
 #kEdge i { display: block; border-radius: 3px 3px 0 0; background: rgba(255, 255, 255, .08); transition: background-color .2s, box-shadow .2s; }
 
-/* fading guide: the four positions, shown while sliding or turning */
+/* fading guide: the five positions, shown while sliding or turning */
 #kGuide {
   position: fixed; left: 0; right: 0; bottom: calc(100px + var(--sab, 0px) + 12px); z-index: 55;
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 0 16px;
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; padding: 0 16px;
   pointer-events: none; opacity: 0; transform: translateY(8px); transition: opacity .25s, transform .25s;
 }
 #kGuide.show { opacity: 1; transform: none; }
@@ -27,7 +27,7 @@ html.knob-nocursor, html.knob-nocursor * { cursor: none !important; }
 
 /* value pop-up: above the selected position, while turning or pressing */
 #kPop {
-  position: fixed; bottom: calc(100px + var(--sab, 0px) + 100px); z-index: 56; width: 260px; margin-left: -130px;
+  position: fixed; bottom: calc(100px + var(--sab, 0px) + 100px); z-index: 56; width: 280px; margin-left: -140px;
   padding: 16px 18px; border-radius: 26px; display: flex; flex-direction: column; gap: 8px;
   background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-edge); box-shadow: var(--glass-shadow);
@@ -42,4 +42,14 @@ html.knob-nocursor, html.knob-nocursor * { cursor: none !important; }
 #kPop .kbar { height: 6px; border-radius: 3px; background: rgba(127, 127, 127, .25); }
 #kPop .kbar i { display: block; height: 6px; border-radius: 3px; background: var(--gc); transition: width .15s; }
 #kPop .ks { font-size: 13px; color: var(--tx3); }
+#kPop .kv.txt { font-size: 26px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#kPop .khint { list-style: none; margin: 4px 0 0; padding: 10px 0 0; border-top: 1px solid var(--glass-edge); display: grid; gap: 5px; }
+#kPop .khint li { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+#kPop .khint b { font-weight: 600; color: var(--gc); }
+#kPop .khint span { color: var(--tx2); }
+
+/* screen off (Media · hold): the knob's pop-up and edge still show above it */
+#kBlack { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 40px; }
+#kBlack[hidden] { display: none; }
+#kBlack span { color: rgba(255, 255, 255, .22); font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { #kGuide, #kPop { transition: none; } }

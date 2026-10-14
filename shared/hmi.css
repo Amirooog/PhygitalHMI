@@ -332,6 +332,9 @@ svg.i { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-widt
 .pill.big { height: 44px; align-self: flex-start; font-size: 16px; padding: 0 18px; border-radius: 22px; background: var(--tile); }
 .pill.big b { color: var(--tx); font-weight: 600; margin-left: 4px; }
 .stcs { margin-top: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.stcs.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+#bar .tval.off b { opacity: .35; }
+#bar .tval.off small { color: var(--hot); }
 .stc { display: grid; grid-template-columns: 52px minmax(0, 1fr) 52px; align-items: center; height: 124px; border-radius: var(--r-tile); background: var(--tile); }
 .stc > button { height: 100%; display: grid; place-items: center; }
 .stc > button .ms { font-size: 30px; }

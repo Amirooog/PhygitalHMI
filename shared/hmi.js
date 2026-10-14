@@ -80,10 +80,15 @@ const POI = [
   { id: 'ikia', n: 'Imam Khomeini Airport', c: 'Airport', x: -12000, y: 38000 },
   { id: 'cafe', n: 'Narvan Café', c: 'Café', x: 600, y: -400 },
   { id: 'fuel', n: 'Fuel station', c: 'Fuel', x: -700, y: 900 },
-  { id: 'ev', n: 'EV charging', c: 'Charging', x: 1900, y: 400 }
+  { id: 'ev', n: 'EV charging', c: 'Charging', x: 1900, y: 400 },
+  { id: 'ev2', n: 'Milad EV Hub', c: 'Charging · 150 kW', x: -3900, y: 1700 },
+  { id: 'ev3', n: 'Tajrish Fast Charge', c: 'Charging · 50 kW', x: 1100, y: -6500 }
 ];
 const PB = Object.fromEntries(POI.map(p => [p.id, p]));
 const NAV_RECENT = ['tajrish', 'cafe', 'ut'];
+const FAVORITES = ['home', 'work', 'milad', 'tajrish', 'ut', 'cafe'];          // knob: rotate on Navigation
+const CHARGERS = POI.filter(p => p.c.startsWith('Charging'))                     // knob: hold + rotate, nearest first
+  .sort((a, b) => (Math.abs(a.x) + Math.abs(a.y)) - (Math.abs(b.x) + Math.abs(b.y))).map(p => p.id);
 const ROUTE_SECONDS = 40;      // simulated drive length, whatever the distance
 
 /* EV: drive modes and battery */
@@ -91,8 +96,10 @@ const DMODES = {
   range:    { n: 'Range',    ic: 'eco',            d: 'Softer acceleration and climate for the most kilometres.', regen: 3, steer: 1, ride: 1, rng: 1.08 },
   everyday: { n: 'Everyday', ic: 'directions_car', d: 'Balanced response for daily driving.',                    regen: 2, steer: 2, ride: 2, rng: 1 },
   sport:    { n: 'Sport',    ic: 'speed',          d: 'Sharper throttle, firmer steering and suspension.',        regen: 2, steer: 3, ride: 3, rng: 0.9 },
-  snow:     { n: 'Snow',     ic: 'ac_unit',        d: 'Gentle torque and extra traction control on slippery roads.', regen: 1, steer: 1, ride: 2, rng: 0.95 }
+  snow:     { n: 'Snow',     ic: 'ac_unit',        d: 'Gentle torque and extra traction control on slippery roads.', regen: 1, steer: 1, ride: 2, rng: 0.95 },
+  custom:   { n: 'Custom',   ic: 'tune',           d: 'Your own regenerative braking, steering and ride.', regen: 2, steer: 2, ride: 2, rng: 1 }
 };
+const ESP = ['Off', '1', '2', '3'];   // stability control level, 3 = full intervention
 const DSET = {
   regen: { n: 'Regenerative braking', v: ['Low', 'Medium', 'High'] },
   steer: { n: 'Steering', v: ['Light', 'Standard', 'Firm'] },
@@ -115,7 +122,7 @@ const P = {
 function fresh() {
   return {
     screen: 'home', sheet: null, locked: false, zoom: 1,
-    clim: { dT: 22, pT: 22, fan: 3, auto: false, ac: true, recirc: false, sync: false, mode: 'face',
+    clim: { dOn: true, pOn: true, dT: 22, pT: 22, fan: 3, auto: false, ac: true, recirc: false, sync: false, mode: 'face',
             seatL: 0, seatR: 0, ventL: 0, ventR: 0, wheel: false },
     media: { src: 'bt', playing: true, track: 0, pos: 37, usb: 0, upos: 0, fm: 1, freq: 95.5, vol: 14, mute: false },
     phone: { tab: 'recents', open: null, dial: '', call: null,
@@ -123,7 +130,7 @@ function fresh() {
                    { cid: 'ali', k: 'Missed', w: 'Yesterday' }, { cid: 'kaveh', k: 'Outgoing', w: 'Monday' },
                    { cid: 'parisa', k: 'Incoming', w: 'Sunday' }] },
     nav: { mode: 'idle', q: '', sel: null, dest: null, t0: 0 },
-    car: { tab: 'drive', mode: 'everyday', regen: 2, steer: 2, ride: 2,
+    car: { tab: 'drive', mode: 'everyday', regen: 2, steer: 2, ride: 2, esp: 3,
            soc: 68, limit: 80, plugged: true, charging: true, schedule: false, port: false }
   };
 }
@@ -210,10 +217,10 @@ function renderRail() {
 function renderBar() {
   const c = S.clim, m = S.media;
   const tp = side => {
-    const v = side === 'd' ? c.dT : c.pT, who = side === 'd' ? 'Driver' : 'Passenger';
+    const v = side === 'd' ? c.dT : c.pT, who = side === 'd' ? 'Driver' : 'Passenger', on = side === 'd' ? c.dOn : c.pOn;
     return `<div class="tpill">
       <button class="down" ${A('temp', side + '-')} aria-label="${who} temperature down">${ms('expand_more')}</button>
-      <span class="tval"><b>${tempFmt(v)}${ms('mode_fan')}</b><small>${c.auto ? 'AUTO' : 'FAN ' + c.fan}</small></span>
+      <span class="tval${on ? '' : ' off'}"><b>${tempFmt(v)}${ms('mode_fan')}</b><small>${!on ? 'OFF' : c.auto ? 'AUTO' : 'FAN ' + c.fan}</small></span>
       <button class="up" ${A('temp', side + '+')} aria-label="${who} temperature up">${ms('expand_less')}</button>
     </div>`;
   };
@@ -520,7 +527,11 @@ function vehicle() {
       <section class="vhero">
         <div class="vtitle">${ms(md.ic)}<div><h2>${md.n}</h2><p>${md.d}</p></div></div>
         <div class="pill big">${ms('route')}Estimated range <b>${rangeKm()} km</b></div>
-        <div class="stcs">${stc('regen')}${stc('steer')}${stc('ride')}</div>
+        <div class="stcs four">${stc('regen')}${stc('steer')}${stc('ride')}
+          <div class="stc">
+            <button ${A('esp', '-')} aria-label="Stability control lower" ${v.esp <= 0 ? 'disabled' : ''}>${ms('chevron_left')}</button>
+            <div><span class="lbl">Stability (ESP)</span><b>${ESP[v.esp].toUpperCase()}</b>${dashes(3, v.esp)}</div>
+            <button ${A('esp', '+')} aria-label="Stability control higher" ${v.esp >= 3 ? 'disabled' : ''}>${ms('chevron_right')}</button></div></div>
       </section></div>`;
   } else {
     const soc = Math.floor(v.soc);
@@ -660,8 +671,8 @@ const ACT = {
 
   temp(v) {
     const c = S.clim, d = v[1] === '+' ? 0.5 : -0.5;
-    if (v[0] === 'd') { c.dT = clamp(c.dT + d, 16, 28); if (c.sync) c.pT = c.dT; }
-    else { c.pT = clamp(c.pT + d, 16, 28); c.sync = false; }
+    if (v[0] === 'd') { c.dOn = true; c.dT = clamp(c.dT + d, 16, 28); if (c.sync) c.pT = c.dT; }
+    else { c.pOn = true; c.pT = clamp(c.pT + d, 16, 28); c.sync = false; }
   },
   seat(k) {
     const c = S.clim, side = k.slice(-1);
@@ -740,10 +751,12 @@ const ACT = {
   vtab(v) { S.car.tab = v; },
   dmode(v) {
     const m = DMODES[v]; if (!m) return;
-    Object.assign(S.car, { mode: v, regen: m.regen, steer: m.steer, ride: m.ride });
+    if (v === 'custom') S.car.mode = v;                      // Custom keeps the current regen, steering and ride
+    else Object.assign(S.car, { mode: v, regen: m.regen, steer: m.steer, ride: m.ride });
     toast(ms(m.ic), 'Drive mode · ' + m.n);
   },
   dset(v) { const [k, d] = v.split(':'); S.car[k] = clamp(S.car[k] + (d === '+' ? 1 : -1), 1, 3); },
+  esp(v) { S.car.esp = clamp(S.car.esp + (v === '+' ? 1 : -1), 0, 3); toast(ms('car_crash'), 'Stability control · ' + ESP[S.car.esp]); },
   charge() { const c = S.car; if (c.soc < c.limit) c.charging = !c.charging; },
   climit(v) {
     const c = S.car;
@@ -830,7 +843,7 @@ window.HMI = {
   app: BUILD.line, build: BUILD.id,
   root: $('#app'),
   state: () => S,
-  data: { tracks: TRACKS },
+  data: { tracks: TRACKS, usb: USB, fms: FMS, poi: PB, favorites: FAVORITES, chargers: CHARGERS, dmodes: DMODES, esp: ESP },
   prefs: () => ({ theme: themeNow(), accent: PREF.accent }),
   lock: LOCK,
   reset() { S = fresh(); lastScreen = null; lastLeg = -1; $('#pop').hidden = true; render(); },
