@@ -48,3 +48,46 @@ html.knob-nocursor, html.knob-nocursor * { cursor: none !important; }
 #kHint b { color: var(--gc); font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { #kArc, #kArc .ka-i, #kHint { transition: none; } }
 #kDbg { position: fixed; top: 40px; right: 8px; z-index: 300; margin: 0; padding: 8px 10px; max-width: 520px; font: 11px/1.4 ui-monospace, monospace; color: #9f9; background: rgba(0,0,0,.8); border-radius: 8px; pointer-events: none; white-space: pre; }
+
+/* knob tutorial (Settings → Knob · tutorial) */
+#kTut { position: fixed; inset: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(5, 6, 7, .78); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); opacity: 0; transition: opacity .3s; }
+#kTut[hidden] { display: none; }
+#kTut.show { opacity: 1; }
+#kTut .kt-card { width: min(560px, 100%); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; color: #F2F1EE; }
+#kTut .kt-art { width: 100%; max-width: 440px; overflow: visible; }
+#kTut .kt-rail { stroke: rgba(242, 241, 238, .35); stroke-width: 4; stroke-linecap: round; }
+#kTut .kt-gate { stroke: rgba(242, 241, 238, .22); stroke-width: 2; stroke-linecap: round; }
+#kTut .kt-fill { fill: #2A2E35; stroke: var(--acc); stroke-width: 3; transition: fill .2s; }
+#kTut .kt-hold { fill: none; stroke: var(--acc); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; opacity: 0; transform: rotate(-90deg); transform-origin: 180px 95px; }
+#kTut .kt-turn, #kTut .kt-turn-h { fill: none; stroke: var(--acc); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+#kTut .kt-down, #kTut .kt-left { fill: none; stroke: var(--acc); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+#kTut .kt-knob { transform-origin: 180px 95px; }
+#kTut .kt-dots { display: flex; gap: 8px; margin-top: 6px; }
+#kTut .kt-dots i { width: 8px; height: 8px; border-radius: 4px; background: rgba(242, 241, 238, .2); transition: background .2s, width .2s; }
+#kTut .kt-dots i.cur { width: 22px; background: var(--acc); }
+#kTut .kt-dots i.ok { background: rgba(242, 241, 238, .6); }
+#kTut .kt-t { margin: 8px 0 0; font-size: 34px; font-weight: 400; letter-spacing: -.01em; }
+#kTut .kt-s { margin: 0; font-size: 17px; line-height: 1.45; color: rgba(242, 241, 238, .62); max-width: 440px; }
+#kTut .kt-skip { margin-top: 14px; padding: 12px 26px; min-height: 48px; border-radius: 24px; border: 1px solid rgba(242, 241, 238, .25); background: transparent; color: rgba(242, 241, 238, .75); font: inherit; font-size: 15px; }
+#kTut.ok .kt-fill { fill: var(--acc); }
+#kTut.ok .kt-t { color: var(--acc); }
+
+#kTut[data-step="slide"] .kt-knob { animation: kt-slide 2s ease-in-out infinite; }
+#kTut[data-step="slide"] .kt-left { opacity: 1; animation: kt-nudge 2s ease-in-out infinite; }
+#kTut[data-step="turn"] .kt-turn, #kTut[data-step="turn"] .kt-turn-h,
+#kTut[data-step="hturn"] .kt-turn, #kTut[data-step="hturn"] .kt-turn-h { opacity: 1; }
+#kTut[data-step="turn"] .kt-knob, #kTut[data-step="hturn"] .kt-knob { animation: kt-rot 1.6s ease-in-out infinite; }
+#kTut[data-step="press"] .kt-down, #kTut[data-step="hturn"] .kt-down, #kTut[data-step="long"] .kt-down { opacity: 1; }
+#kTut[data-step="press"] .kt-fill { animation: kt-press 1.2s ease-in-out infinite; transform-origin: 180px 95px; }
+#kTut[data-step="hturn"] .kt-fill { fill: #3A404A; }
+#kTut[data-step="long"] .kt-hold { opacity: 1; animation: kt-hold 1.8s ease-in-out infinite; }
+#kTut[data-step="long"] .kt-fill { fill: #3A404A; }
+#kTut[data-step="done"] .kt-fill { fill: var(--acc); }
+
+@keyframes kt-slide { 0%, 15% { transform: translateX(0); } 55%, 80% { transform: translateX(-150px); } 100% { transform: translateX(0); } }
+@keyframes kt-nudge { 0%, 100% { transform: translateX(0); opacity: .9; } 50% { transform: translateX(-10px); opacity: .4; } }
+@keyframes kt-rot { 0%, 100% { transform: rotate(-18deg); } 50% { transform: rotate(18deg); } }
+@keyframes kt-press { 0%, 100% { transform: scale(1); } 40% { transform: scale(.86); } }
+@keyframes kt-hold { 0% { stroke-dashoffset: 100; } 70%, 100% { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { #kTut * { animation: none !important; } }

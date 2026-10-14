@@ -20,7 +20,7 @@ if (!H) return;
 
 /* ---------- settings (per device) ---------- */
 const KEY = 'phmi.knob';
-const K = Object.assign({ notch: 185, invert: false, hideCursor: true, blockClicks: true, longMs: 600, dblMs: 300 },
+const K = Object.assign({ notch: 185, invert: false, hideCursor: true, blockClicks: true, longMs: 600, dblMs: 300, tutorial: false },
   (() => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } })());
 delete K.custom;                                                    // dev.1 setting, no longer used
 const saveK = () => { try { localStorage.setItem(KEY, JSON.stringify(K)); } catch (e) { /* memory only */ } };
@@ -217,6 +217,7 @@ const trace = l => { if (window.PHMI_TRACE) window.PHMI_TRACE(l); };
 /* run one gesture on the selected position */
 function fire(g, k) {
   if (zone === null) { zone = 0; drawEdge(); }
+  if (TUT.on) { TUT.got(g); return; }                               // tutorial: practise without changing the car
   const p = P[zone];
   if (!p[g]) { showArc('', true); trace(g + ':' + p.key + ':none'); return; }   // gesture not used here: show what is
   const label = p[g](H.state(), k);
@@ -238,7 +239,9 @@ document.addEventListener('pointermove', e => {
   if (z === zone) return;
   zone = z;
   cancelTap();
-  drawEdge(); showArc('', true);
+  drawEdge();
+  if (TUT.on) { TUT.slid(zone); return; }
+  showArc('', true);
   trace('slide:' + P[zone].key);
 }, { passive: true });
 
@@ -302,12 +305,66 @@ document.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefaul
 let mouseDown = false;
 document.addEventListener('pointerdown', e => { mouseDown = e.pointerType === 'mouse'; }, true);
 document.addEventListener('click', e => {
-  if (K.blockClicks && mouseDown && !e.target.closest('#rp, #rovl')) { e.stopPropagation(); e.preventDefault(); }
+  if (K.blockClicks && mouseDown && !e.target.closest('#rp, #rovl, #kTut')) { e.stopPropagation(); e.preventDefault(); }
 }, true);
 
 /* a fresh trial starts with the screen on and nothing pending */
 const reset0 = H.reset;
-H.reset = function () { setDark(false); if (tapT) { clearTimeout(tapT); tapT = null; } nav.i = -1; P.forEach(p => { p.view = null; }); return reset0.apply(this, arguments); };
+H.reset = function () { setDark(false); if (TUT.on) TUT.stop(); if (tapT) { clearTimeout(tapT); tapT = null; } nav.i = -1; P.forEach(p => { p.view = null; }); return reset0.apply(this, arguments); };
+
+/* ---------- tutorial: a short, interactive first lesson (Settings → Knob · tutorial) ----------
+   Shown after the start-up animation when switched on. Each step waits for the real gesture on the knob;
+   gestures made during the tutorial change nothing in the car. Touch "Skip" to leave. */
+const TUT = (() => {
+  const STEPS = [
+    { id: 'slide', t: 'Slide the knob all the way left', s: 'Each stop on the rail is one area of the car. The far left is your climate.' },
+    { id: 'turn', t: 'Turn the knob', s: 'Turning changes the value: one click, one step.' },
+    { id: 'press', t: 'Press the knob', s: 'A press switches something quick, like seat heating.' },
+    { id: 'hturn', t: 'Hold it down and turn', s: 'Holding while you turn moves through a second list, like fan speed.' },
+    { id: 'long', t: 'Press and hold', s: 'A long hold changes a state: on or off, a mode, or cancel.' }
+  ];
+  const el = document.createElement('div'); el.id = 'kTut'; el.hidden = true; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Knob tutorial');
+  el.innerHTML = `<div class="kt-card">
+    <svg class="kt-art" viewBox="0 0 360 150" aria-hidden="true">
+      <line class="kt-rail" x1="30" y1="95" x2="330" y2="95"/>
+      ${[30, 105, 180, 255, 330].map(x => `<line class="kt-gate" x1="${x}" y1="83" x2="${x}" y2="107"/>`).join('')}
+      <g class="kt-knob"><circle class="kt-fill" cx="180" cy="95" r="30"/><circle class="kt-hold" cx="180" cy="95" r="38" pathLength="100"/>
+        <path class="kt-turn" d="M150 60 A44 44 0 0 1 214 58" pathLength="100"/><path class="kt-turn-h" d="M206 50 l10 8 l-12 4"/>
+        <path class="kt-down" d="M180 20 v22 M171 34 l9 9 l9 -9"/></g>
+      <path class="kt-left" d="M120 40 h-60 M72 30 l-12 10 l12 10"/>
+    </svg>
+    <div class="kt-dots"></div><h2 class="kt-t"></h2><p class="kt-s"></p>
+    <button class="kt-skip" type="button">Skip</button></div>`;
+  document.body.appendChild(el);
+  let i = 0, on = false, busy = false;
+  const show = () => {
+    const st = STEPS[i];
+    el.dataset.step = st ? st.id : 'done';
+    el.querySelector('.kt-dots').innerHTML = STEPS.map((_, n) => `<i class="${n < i ? 'ok' : n === i ? 'cur' : ''}"></i>`).join('');
+    el.querySelector('.kt-t').textContent = st ? st.t : 'You are ready';
+    el.querySelector('.kt-s').textContent = st ? st.s : 'Hints appear every time the knob reaches a new position.';
+    el.querySelector('.kt-skip').textContent = st ? 'Skip' : 'Done';
+  };
+  const stop = () => { on = false; el.classList.remove('show'); setTimeout(() => { el.hidden = true; }, 300); trace('tutorial:end:' + i); };
+  const pass = () => {
+    if (busy) return; busy = true; el.classList.add('ok');
+    trace('tutorial:' + STEPS[i].id);
+    setTimeout(() => {
+      el.classList.remove('ok'); busy = false; i++; show();
+      if (i >= STEPS.length) setTimeout(() => { if (on && i >= STEPS.length) stop(); }, 2600);
+    }, 750);
+  };
+  el.querySelector('.kt-skip').addEventListener('click', stop);
+  return {
+    get on() { return on; },
+    start() { if (H.locked()) return; i = 0; on = true; busy = false; show(); el.hidden = false; requestAnimationFrame(() => el.classList.add('show')); trace('tutorial:start'); if (zone === 0) setTimeout(() => { if (on && i === 0) pass(); }, 900); },
+    stop,
+    slid(z) { if (on && STEPS[i] && STEPS[i].id === 'slide' && z === 0) pass(); },
+    got(g) { if (!on || !STEPS[i]) return; const want = STEPS[i].id; if (g === want || (want === 'press' && g === 'dbl')) pass(); }
+  };
+})();
+const startTut = () => { if (K.tutorial) TUT.start(); };
+if (window.PHMI_BOOTED) setTimeout(startTut, 200); else window.addEventListener('phmi:booted', startTut, { once: true });
 
 /* ---------- settings rows (set while parked; locked during a trial) ---------- */
 const applyCursor = () => document.documentElement.classList.toggle('knob-nocursor', !!K.hideCursor);
@@ -316,6 +373,7 @@ const stepper = (act, val, unit) => `<div class="stepper"><button data-a="${act}
 const guard = () => { if (!H.locked()) return false; H.toast('lock', 'Knob settings are locked during the test'); return true; };
 H.extend({
   settings: () => `
+    <div class="srow"><div><div class="lbl">Knob · tutorial</div><div class="sub">Show a short knob lesson after the welcome screen</div></div><div class="seg"><button class="${K.tutorial ? '' : 'on'}" data-a="ktut" data-v="0" aria-pressed="${!K.tutorial}">Off</button><button class="${K.tutorial ? 'on' : ''}" data-a="ktut" data-v="1" aria-pressed="${!!K.tutorial}">On</button><button data-a="ktutnow" data-v="">Show now</button></div></div>
     <div class="srow"><div><div class="lbl">Knob · turn direction</div><div class="sub">Which way of turning raises the value</div></div>${seg('kinv', [['0', 'Normal'], ['1', 'Reversed']], K.invert ? '1' : '0')}</div>
     <div class="srow"><div><div class="lbl">Knob · notch size</div><div class="sub">Wheel distance for one step (measured: 185)</div></div>${stepper('knotch', K.notch)}</div>
     <div class="srow"><div><div class="lbl">Knob · hold time</div><div class="sub">How long to hold the knob down for a long press</div></div>${stepper('klong', K.longMs, ' ms')}</div>
@@ -326,6 +384,8 @@ H.extend({
     knotch(v) { if (guard()) return; K.notch = clamp(K.notch + (v === '+' ? 5 : -5), 60, 400); saveK(); },
     klong(v) { if (guard()) return; K.longMs = clamp(K.longMs + (v === '+' ? 50 : -50), 400, 1200); saveK(); },
     kdbl(v) { if (guard()) return; K.dblMs = clamp(K.dblMs + (v === '+' ? 25 : -25), 200, 500); saveK(); },
+    ktut(v) { if (guard()) return; K.tutorial = v === '1'; saveK(); },
+    ktutnow() { if (guard()) return; TUT.start(); },
     kmouse(v) { if (guard()) return; K.blockClicks = v === '1'; K.hideCursor = v === '1'; saveK(); applyCursor(); }
   }
 });
