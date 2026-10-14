@@ -53,3 +53,4 @@ html.knob-nocursor, html.knob-nocursor * { cursor: none !important; }
 #kBlack[hidden] { display: none; }
 #kBlack span { color: rgba(255, 255, 255, .22); font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { #kGuide, #kPop { transition: none; } }
+#kDbg { position: fixed; top: 40px; right: 8px; z-index: 300; margin: 0; padding: 8px 10px; max-width: 520px; font: 11px/1.4 ui-monospace, monospace; color: #9f9; background: rgba(0,0,0,.8); border-radius: 8px; pointer-events: none; white-space: pre; }

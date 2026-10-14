@@ -196,6 +196,7 @@ let lastTurn = 0, held = false;
 const HALF = 0.5 / 5;
 document.addEventListener('pointermove', e => {
   if (e.pointerType !== 'mouse') return;
+  if (held && !(e.buttons & 4) && performance.now() - downT > K.longMs + 200) held = false;   // missed button-up: unstick
   if (held || performance.now() - lastTurn < LOCK_MS) return;      // locked while turning or held
   const f = clamp(e.clientX / Math.max(1, window.innerWidth - 1), 0, 1);
   let z = Math.min(P.length - 1, Math.floor(f * P.length));
@@ -227,18 +228,19 @@ document.addEventListener('wheel', e => {
 }, { passive: false });
 
 /* ---------- press / double press / long press: middle button ---------- */
-let downT = 0, longT, longFired = false, tapT = null;
+let downT = 0, longT, stuckT, longFired = false, tapT = null;
 const cancelTap = () => { if (tapT) { clearTimeout(tapT); tapT = null; fire('press'); } };   // a pending single press is not lost
 document.addEventListener('pointerdown', e => {
   if (e.pointerType !== 'mouse' || e.button !== 1) return;
   e.preventDefault();
   held = true; downT = performance.now(); longFired = false; turnedWhileHeld = false;
   clearTimeout(longT);
+  clearTimeout(stuckT); stuckT = setTimeout(() => { held = false; }, 4000);   // safety net if the release never arrives
   longT = setTimeout(() => { if (held && !turnedWhileHeld) { longFired = true; if (tapT) { clearTimeout(tapT); tapT = null; } fire('long'); } }, K.longMs);
 }, true);
 function release(e) {
-  if (!held || (e && e.button !== 1)) return;
-  held = false; clearTimeout(longT);
+  if (!held || (e && e.pointerType && e.pointerType !== 'mouse')) return;   // iPadOS may report a different button on release
+  held = false; clearTimeout(longT); clearTimeout(stuckT);
   if (longFired || turnedWhileHeld) return;
   if (zone === null) { zone = 0; drawEdge(); }
   const p = P[zone];
@@ -247,6 +249,17 @@ function release(e) {
   tapT = setTimeout(() => { tapT = null; fire('press'); }, K.dblMs);
 }
 document.addEventListener('pointerup', release, true);
+document.addEventListener('mouseup', e => { if (e.button === 1) release(e); }, true);
+document.addEventListener('pointercancel', () => { held = false; clearTimeout(longT); clearTimeout(stuckT); }, true);
+
+/* raw event readout for checking the knob on the iPad: open sk/?kdebug */
+if (/[?&]kdebug/.test(location.search)) {
+  const dbg = document.createElement('pre'); dbg.id = 'kDbg'; document.body.append(dbg);
+  const lines = [];
+  const log = (t, e) => { lines.unshift(`${(performance.now() / 1000).toFixed(2)} ${t} ${e.pointerType || ''} btn=${e.button ?? ''} btns=${e.buttons ?? ''}${e.deltaY != null ? ' dy=' + e.deltaY.toFixed(1) : ''} held=${held} zone=${zone}`); lines.length = Math.min(lines.length, 14); dbg.textContent = lines.join('\n'); };
+  ['pointerdown', 'pointerup', 'pointercancel', 'mousedown', 'mouseup', 'auxclick', 'wheel'].forEach(t => document.addEventListener(t, e => log(t, e), { capture: true, passive: true }));
+  let mv = 0; document.addEventListener('pointermove', e => { if (++mv % 15 === 0) log('move x=' + Math.round(e.clientX), e); }, { capture: true, passive: true });
+}
 window.addEventListener('blur', () => { held = false; clearTimeout(longT); });
 document.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); }, true);
 document.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); }, true);

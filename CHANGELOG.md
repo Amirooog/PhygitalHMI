@@ -30,6 +30,7 @@ Rules
   | Passenger climate | as driver | | | | |
   Double press is only read on the climate positions, so a single press there waits 300 ms. Slide is locked while the knob is held. The pop-up lists the gestures of a position when the knob arrives on it. Hold time and double-press window are adjustable in Settings; the "fourth position" setting is removed. Screen off is a black layer; the knob's pop-ups still show on it and a touch wakes it.
   Tested headless (Playwright, replayed iPad notches, middle-button down/up timing): every gesture on all five positions; T1, T2, T3, T5, T10 succeed by knob only (0 touches).
+- dev.3: on the iPad the knob's slide stopped responding after a press. Most likely cause: iPadOS does not send the middle-button release the way desktop browsers do, so the knob stayed "held" and the slide stayed locked. The release is now accepted from any mouse button-up (pointerup or mouseup), the hold clears itself when the cursor moves with no button down, and a 4 s safety net clears it in every case. Added `sk/?kdebug`, an on-screen readout of the raw mouse events, for checking this on the iPad. No change to the gestures or task paths.
 
 ## Shared code
 - TB-3.0.0-dev.6 / SK-1.0.0-dev.2: per-zone climate on/off (bar shows OFF), stability control (ESP Off/1/2/3, default 3) on the Vehicle drive tab, a Custom drive mode, two more charging stations, favourites and nearest-charger lists for the knob. TB tasks unchanged; all 9 rerun to success.
