@@ -569,7 +569,7 @@ function settings() {
     .map(([k, ic, l]) => `<button class="${PREF.theme === k ? 'on' : ''}" ${A('theme', k)} aria-pressed="${PREF.theme === k}">${ms(ic)}${l}</button>`).join('');
   const sw = Object.entries(ACCENTS)
     .map(([k, a]) => `<button class="${PREF.accent === k ? 'on' : ''}" ${A('accent', k)} aria-label="${a.name}" aria-pressed="${PREF.accent === k}"><span style="background:${a[th]}"></span></button>`).join('');
-  return `<div class="set">
+  return `<div class="setwrap" data-scroll="set"><div class="set">
     <div class="srow"><div><div class="lbl">Appearance</div><div class="sub">Auto follows the iPad's light or dark setting</div></div><div class="seg">${seg}</div></div>
     <div class="srow"><div><div class="lbl">Accent colour</div><div class="sub">${ACCENTS[PREF.accent].name}</div></div><div class="swatches">${sw}</div></div>
     <div class="srow"><div><div class="lbl">Top offset</div><div class="sub">Keeps controls clear of the blurred band at the top of the screen</div></div>
@@ -578,7 +578,7 @@ function settings() {
       <div class="stepper"><button ${A('safebottom', '-')} aria-label="Less">${ms('remove')}</button><b>${PREF.safeBottom > 0 ? '+' : ''}${PREF.safeBottom} px</b><button ${A('safebottom', '+')} aria-label="More">${ms('add')}</button></div></div>
     ${EXT.settings.map(f => f()).join('')}
     <div class="about"><span>${BUILD.name} · ${esc(FIT)}</span><span>${BUILD.id}</span></div>
-  </div>`;
+  </div></div>`;
 }
 
 /* ---------- render ---------- */

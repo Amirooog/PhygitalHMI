@@ -35,6 +35,7 @@ Rules
 - dev.5: knob tutorial (Settings → Knob · tutorial: Off by default, On, or Show now). After the start-up animation it teaches five steps, each waiting for the real gesture: slide far left, turn, press, hold + turn, press and hold. Gestures made during the tutorial change nothing in the car; touch Skip to leave. Logged as tutorial: entries in the trace. A researcher reset closes it.
 
 ## Shared code
+- TB-3.0.0-dev.8 / SK-1.0.0-dev.6: Settings page scrolls (it was clipped once the knob rows made it taller than the screen).
 - TB-3.0.0-dev.7 / SK-1.0.0-dev.5: start-up animation every time the app opens (shared/boot.js, boot.css): the rail draws in, the knob slides to the centre, a ring pulses, then "Good morning/afternoon/evening · Welcome back" with battery, inside temperature and drive mode. About 3.6 s; touch to skip; not shown on researcher resets.
 - TB-3.0.0-dev.6 / SK-1.0.0-dev.2: per-zone climate on/off (bar shows OFF), stability control (ESP Off/1/2/3, default 3) on the Vehicle drive tab, a Custom drive mode, two more charging stations, favourites and nearest-charger lists for the knob. TB tasks unchanged; all 9 rerun to success.
 - TB-3.0.0-dev.5: the app moved to shared/hmi.js and shared/hmi.css so TB and SK run identical code; each app sets its build in HMI_CONFIG.
