@@ -5,52 +5,46 @@ html.knob-nocursor, html.knob-nocursor * { cursor: none !important; }
 #kEdge { position: fixed; left: 0; right: 0; bottom: 0; height: 6px; z-index: 60; display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 0 6px; pointer-events: none; }
 #kEdge i { display: block; border-radius: 3px 3px 0 0; background: rgba(255, 255, 255, .08); transition: background-color .2s, box-shadow .2s; }
 
-/* fading guide: the five positions, shown while sliding or turning */
-#kGuide {
-  position: fixed; left: 0; right: 0; bottom: calc(100px + var(--sab, 0px) + 12px); z-index: 55;
-  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; padding: 0 16px;
-  pointer-events: none; opacity: 0; transform: translateY(8px); transition: opacity .25s, transform .25s;
+/* arc dial: a half disc growing from the bottom edge above the knob; values sit on the arc like a dial */
+#kArc {
+  --aw: 460px;
+  position: fixed; bottom: 6px; left: 50%; z-index: 56; width: var(--aw); height: calc(var(--aw) / 2); margin-left: calc(var(--aw) / -2);
+  border-radius: calc(var(--aw) / 2) calc(var(--aw) / 2) 0 0; overflow: hidden;
+  background: color-mix(in srgb, var(--card) 92%, transparent); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge); border-bottom: 0;
+  box-shadow: inset 0 2px 0 color-mix(in srgb, var(--gc) 70%, transparent), 0 -10px 40px color-mix(in srgb, var(--gc) 18%, transparent), var(--glass-shadow);
+  pointer-events: none; opacity: 0; transform: translateY(40%) scale(.92); transform-origin: 50% 100%;
+  transition: opacity .22s, transform .28s cubic-bezier(.2, .8, .2, 1), left .28s cubic-bezier(.2, .8, .2, 1);
 }
-#kGuide.show { opacity: 1; transform: none; }
-#kGuide .kg {
-  display: flex; align-items: center; gap: 12px; height: 72px; padding: 0 16px; border-radius: 22px;
-  background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-edge); color: var(--tx2);
+#kArc.show { opacity: 1; transform: none; }
+#kArc .ka-items { position: absolute; left: 50%; bottom: 0; width: 0; height: 0; }
+#kArc .ka-i {
+  position: absolute; left: 0; top: 0; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 34px; font-weight: 400; letter-spacing: -.01em; color: var(--tx); font-variant-numeric: tabular-nums;
+  transition: transform .26s cubic-bezier(.2, .8, .2, 1), opacity .26s, color .2s;
 }
-#kGuide .kg .ms { font-size: 28px; }
-#kGuide .kg svg.i { width: 28px; height: 28px; }
-#kGuide .kg span { display: flex; flex-direction: column; min-width: 0; }
-#kGuide .kg b { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#kGuide .kg small { font-size: 14px; font-variant-numeric: tabular-nums; }
-#kGuide .kg.on { color: var(--tx); border-color: var(--gc); box-shadow: inset 0 0 0 1.5px var(--gc), 0 0 24px color-mix(in srgb, var(--gc) 35%, transparent); }
-#kGuide .kg.on .ms, #kGuide .kg.on svg.i { color: var(--gc); }
+#kArc .ka-i.on { color: var(--tx); font-weight: 500; }
+#kArc .ka-items.snap .ka-i { transition: none; }
+#kArc .ka-items.txt .ka-i { font-size: 24px; max-width: 200px; }
+#kArc .ka-mid { position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%); width: 230px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+#kArc .ka-head { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--tx2); white-space: nowrap; }
+#kArc .ka-head .ms { font-size: 20px; color: var(--gc); }
+#kArc .ka-head svg.i { width: 20px; height: 20px; color: var(--gc); }
+#kArc .ka-head em { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gc); margin-left: 4px; }
+#kArc .ka-sub { font-size: 12px; color: var(--tx3); max-width: 230px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#kArc .ka-knob { position: absolute; left: 50%; bottom: 0; width: 64px; height: 18px; margin-left: -32px; border-radius: 32px 32px 0 0; background: var(--gc); box-shadow: 0 0 18px var(--gc); }
 
-/* value pop-up: above the selected position, while turning or pressing */
-#kPop {
-  position: fixed; bottom: calc(100px + var(--sab, 0px) + 100px); z-index: 56; width: 280px; margin-left: -140px;
-  padding: 16px 18px; border-radius: 26px; display: flex; flex-direction: column; gap: 8px;
-  background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-edge); box-shadow: var(--glass-shadow);
-  pointer-events: none; opacity: 0; transform: translateY(10px) scale(.97); transition: opacity .2s, transform .2s;
+/* gesture hints: shown above the arc when the knob arrives at a position */
+#kHint {
+  position: fixed; left: 50%; bottom: calc(6px + 230px + 10px); z-index: 56; transform: translate(-50%, 6px);
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 520px; max-width: calc(100vw - 32px);
+  pointer-events: none; opacity: 0; transition: opacity .22s, transform .22s, left .28s cubic-bezier(.2, .8, .2, 1);
 }
-#kPop.show { opacity: 1; transform: none; }
-#kPop .kh { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--tx2); }
-#kPop .kh .ms { font-size: 24px; color: var(--gc); }
-#kPop .kh svg.i { width: 24px; height: 24px; color: var(--gc); }
-#kPop .kh em { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gc); }
-#kPop .kv { font-size: 48px; font-weight: 300; letter-spacing: -.02em; line-height: 1; font-variant-numeric: tabular-nums; }
-#kPop .kbar { height: 6px; border-radius: 3px; background: rgba(127, 127, 127, .25); }
-#kPop .kbar i { display: block; height: 6px; border-radius: 3px; background: var(--gc); transition: width .15s; }
-#kPop .ks { font-size: 13px; color: var(--tx3); }
-#kPop .kv.txt { font-size: 26px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#kPop .khint { list-style: none; margin: 4px 0 0; padding: 10px 0 0; border-top: 1px solid var(--glass-edge); display: grid; gap: 5px; }
-#kPop .khint li { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
-#kPop .khint b { font-weight: 600; color: var(--gc); }
-#kPop .khint span { color: var(--tx2); }
-
-/* screen off (Media · hold): the knob's pop-up and edge still show above it */
-#kBlack { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 40px; }
-#kBlack[hidden] { display: none; }
-#kBlack span { color: rgba(255, 255, 255, .22); font-size: 13px; }
-@media (prefers-reduced-motion: reduce) { #kGuide, #kPop { transition: none; } }
+#kHint.show { opacity: 1; transform: translate(-50%, 0); }
+#kHint span {
+  padding: 6px 11px; border-radius: 14px; font-size: 13px; color: var(--tx2); white-space: nowrap;
+  background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-edge);
+}
+#kHint b { color: var(--gc); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { #kArc, #kArc .ka-i, #kHint { transition: none; } }
 #kDbg { position: fixed; top: 40px; right: 8px; z-index: 300; margin: 0; padding: 8px 10px; max-width: 520px; font: 11px/1.4 ui-monospace, monospace; color: #9f9; background: rgba(0,0,0,.8); border-radius: 8px; pointer-events: none; white-space: pre; }

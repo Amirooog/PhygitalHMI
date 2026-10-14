@@ -12,7 +12,7 @@
      3 Media           turn: volume        hold+turn: next/prev   hold: screen off    press: mute
      4 Navigation      turn: favourites    hold+turn: chargers    hold: cancel        press: start
      5 Passenger       same as driver
-   Digital layer (Ch3): edge colour, fading guide, value pop-up with gesture hints. */
+   Digital layer: edge colour strip + an arc dial above the knob (Amir's wireframes, 14 Oct 2026), gesture hints on arrival. */
 (() => {
 'use strict';
 const H = window.HMI;
@@ -33,6 +33,9 @@ const msI = n => `<span class="ms" aria-hidden="true">${n}</span>`;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const tf = v => v <= 16 ? 'LO' : v >= 28 ? 'HI' : (v % 1 ? v.toFixed(1) : String(v)) + '°';
 const LV = ['Off', 'Low', 'Medium', 'High'];
+const TEMPS = []; for (let v = 16; v <= 28; v += 0.5) TEMPS.push(tf(v));
+const FAN = ['1', '2', '3', '4', '5', '6', '7'];
+const VOLS = Array.from({ length: 31 }, (_, i) => String(i));
 const D = H.data;
 const ROT = ['range', 'everyday', 'sport', 'snow'];                 // modes on the turn; Custom sits on the hold
 const seatCycle = l => [3, 0, 1, 2][l];                             // same order as the touch tile: High → Off → Low → Medium
@@ -57,13 +60,13 @@ function climZone(side) {
     long(s) { const c = s.clim; c[on] = !c[on]; return c[on] ? 'On' : 'Off'; },
     press(s) { const c = s.clim; c['seat' + side] = seatCycle(c['seat' + side]); if (c['seat' + side]) c['vent' + side] = 0; this.view = 'seat'; return 'Seat heat'; },
     dbl(s) { const c = s.clim; c['vent' + side] = seatCycle(c['vent' + side]); if (c['vent' + side]) c['seat' + side] = 0; this.view = 'vent'; return 'Seat vent'; },
-    show(s) {
+    scale(s) {
       const c = s.clim, v = this.view; this.view = null;
-      if (v === 'fan') return { ic: msI('mode_fan'), val: c.fan + ' / 7', sub: 'Fan · both zones', lvl: c.fan / 7 };
-      if (v === 'seat') return { ic: svgI(SEAT), val: LV[c['seat' + side]], sub: who + ' seat heat', lvl: c['seat' + side] / 3 };
-      if (v === 'vent') return { ic: svgI(VENT), val: LV[c['vent' + side]], sub: who + ' seat vent', lvl: c['vent' + side] / 3 };
-      if (!c[on]) return { val: 'OFF', sub: who + ' climate off · turn to switch on', lvl: 0, txt: true };
-      return { val: tf(c[t]), sub: c.auto ? 'Auto · fan ' + c.fan : 'Fan ' + c.fan, lvl: (c[t] - 16) / 12 };
+      if (v === 'fan') return { id: 'fan', head: 'Fan · both zones', items: FAN, cur: c.fan - 1, ic: 'mode_fan' };
+      if (v === 'seat') return { id: 'seat' + side, head: who + ' seat heat', items: LV, cur: c['seat' + side], svg: SEAT };
+      if (v === 'vent') return { id: 'vent' + side, head: who + ' seat vent', items: LV, cur: c['vent' + side], svg: VENT };
+      if (!c[on]) return { id: 'off' + side, head: who + ' climate', items: ['OFF'], cur: 0, sub: 'Turn to switch on' };
+      return { id: 'temp' + side, head: who + ' temperature', items: TEMPS, cur: Math.round((c[t] - 16) * 2), sub: c.auto ? 'Auto · fan ' + c.fan : 'Fan ' + c.fan };
     },
     small: s => s.clim[on] ? tf(s.clim[t]) : 'Off'
   };
@@ -81,23 +84,29 @@ const P = [
     },
     hturn(s, k) { s.car.esp = clamp(s.car.esp + k, 0, 3); this.view = 'esp'; return 'Stability'; },
     long(s) { s.car.mode = 'custom'; return 'Custom'; },
-    show(s) {
+    scale(s) {
       const v = this.view; this.view = null;
-      if (v === 'esp') return { ic: msI('car_crash'), val: 'ESP ' + D.esp[s.car.esp], sub: s.car.esp ? 'Stability control level ' + s.car.esp : 'Stability control off', lvl: s.car.esp / 3 };
-      const m = D.dmodes[s.car.mode];
-      return { ic: msI(m.ic), val: m.n, sub: 'ESP ' + D.esp[s.car.esp], lvl: s.car.mode === 'custom' ? 1 : (ROT.indexOf(s.car.mode) + 1) / ROT.length };
+      if (v === 'esp') return { id: 'esp', head: 'Stability control', items: D.esp.map(e => e === 'Off' ? 'Off' : 'ESP ' + e), cur: s.car.esp, ic: 'car_crash' };
+      if (s.car.mode === 'custom') return { id: 'custom', head: 'Drive mode', items: ['Custom'], cur: 0, sub: 'Turn for preset modes', ic: 'tune' };
+      return { id: 'dmode', head: 'Drive mode', items: ROT.map(k => D.dmodes[k].n), cur: ROT.indexOf(s.car.mode), sub: 'ESP ' + D.esp[s.car.esp], ic: D.dmodes[s.car.mode].ic };
     },
     small: s => D.dmodes[s.car.mode].n },
   { n: 'Media', ic: 'volume_up', col: '#A89BFF',
     hints: [['Turn', 'Volume'], ['Hold + turn', 'Next / previous'], ['Hold', 'Screen off'], ['Press', 'Mute']],
     turn(s, k) { const m = s.media; m.mute = false; m.vol = clamp(m.vol + k, 0, 30); return 'Volume'; },
     hturn(s, k) { for (let n = Math.abs(k); n--;) skip(s.media, k > 0); this.view = 'track'; return k > 0 ? 'Next' : 'Previous'; },
-    long() { setDark(!dark); return dark ? 'Screen off' : 'Screen on'; },
+    long() { setDark(!dark); this.view = 'dark'; return dark ? 'Screen off' : 'Screen on'; },
     press(s) { s.media.mute = !s.media.mute; return s.media.mute ? 'Muted' : 'Unmuted'; },
-    show(s) {
+    scale(s) {
       const m = s.media, v = this.view; this.view = null;
-      if (v === 'track') { const t = curTrack(m); return { ic: msI('queue_music'), val: t[0], sub: t[1], lvl: 0, txt: true }; }
-      return { ic: msI(m.mute ? 'volume_off' : 'volume_up'), val: m.mute ? 'Muted' : String(m.vol), sub: curTrack(m)[0], lvl: m.mute ? 0 : m.vol / 30 };
+      if (v === 'dark') return { id: 'dark', head: 'Screen', items: [dark ? 'Off' : 'On'], cur: 0, ic: dark ? 'mobile_off' : 'smartphone' };
+      if (v === 'track') {
+        const L = m.src === 'fm' ? D.fms.map(f => f.n) : (m.src === 'usb' ? D.usb : D.tracks).map(t => t.t);
+        const cur = m.src === 'fm' ? Math.max(0, D.fms.findIndex(f => f.f === m.freq)) : m.src === 'usb' ? m.usb : m.track;
+        return { id: 'track-' + m.src, head: m.src === 'fm' ? 'Radio station' : 'Track', items: L, cur, sub: curTrack(m)[1], ic: 'queue_music', wrap: true };
+      }
+      if (m.mute) return { id: 'mute', head: 'Volume', items: ['Muted'], cur: 0, sub: 'Press to unmute', ic: 'volume_off' };
+      return { id: 'vol', head: 'Volume', items: VOLS, cur: m.vol, sub: curTrack(m)[0], ic: 'volume_up' };
     },
     small: s => s.media.mute ? 'Muted' : 'Vol ' + s.media.vol },
   { n: 'Navigation', ic: 'near_me', col: '#4CC3E0',
@@ -115,14 +124,15 @@ const P = [
       if (n.dest) { n.dest = null; n.sel = null; n.mode = 'idle'; return 'Route ended'; }
       return 'Nothing to cancel';
     },
-    show(s) {
-      const n = s.nav, id = n.mode === 'preview' ? n.sel : n.dest, p = id && D.poi[id];
-      if (!p) return { ic: msI('near_me'), val: 'No route', sub: 'Turn for favourites', lvl: 0, txt: true };
-      const km = ((Math.abs(p.x) + Math.abs(p.y)) / 1000).toFixed(1);
-      const list = nav.list === 'ev' ? D.chargers : D.favorites;
-      return { ic: msI(nav.list === 'ev' ? 'ev_station' : n.mode === 'route' ? 'navigation' : 'star'), val: p.n,
-        sub: n.mode === 'route' ? 'On route · hold to end' : `${p.c} · ${km} km · press to start`,
-        lvl: n.mode === 'route' ? 1 : (nav.i + 1) / list.length, txt: true };
+    scale(s) {
+      const n = s.nav;
+      if (n.mode === 'preview' && n.sel) {
+        const ev = nav.list === 'ev', ids = ev ? D.chargers : D.favorites, p = D.poi[n.sel];
+        return { id: 'nav-' + nav.list, head: ev ? 'Nearest chargers' : 'Favourites', items: ids.map(i => D.poi[i].n), cur: Math.max(0, ids.indexOf(n.sel)),
+          sub: `${((Math.abs(p.x) + Math.abs(p.y)) / 1000).toFixed(1)} km · press to start`, ic: ev ? 'ev_station' : 'star' };
+      }
+      if (n.dest) return { id: 'route', head: 'On route', items: [D.poi[n.dest].n], cur: 0, sub: 'Hold to end', ic: 'navigation' };
+      return { id: 'noroute', head: 'Navigation', items: ['No route'], cur: 0, sub: 'Turn for favourites', ic: 'near_me' };
     },
     small: s => s.nav.mode === 'route' ? D.poi[s.nav.dest].n : s.nav.mode === 'preview' ? D.poi[s.nav.sel].n : 'No route' },
   climZone('R')
@@ -148,46 +158,70 @@ function skip(m, fwd) {
   m.playing = true;
 }
 
-/* ---------- digital layer ---------- */
+/* ---------- digital layer: edge strip + arc dial ----------
+   The arc grows from the bottom edge right above the knob and follows it from position to position.
+   Its items are the values the knob turns through: centre = current, sides = next / previous, so a turn
+   rolls the arc like a dial. It appears on any knob action and fades after ~2 s. */
 const edge = document.createElement('div'); edge.id = 'kEdge'; edge.setAttribute('aria-hidden', 'true');
-const guide = document.createElement('div'); guide.id = 'kGuide'; guide.setAttribute('aria-hidden', 'true');
-const pop = document.createElement('div'); pop.id = 'kPop'; pop.setAttribute('role', 'status'); pop.setAttribute('aria-live', 'polite');
-document.body.append(black, edge, guide, pop);
+const arc = document.createElement('div'); arc.id = 'kArc'; arc.setAttribute('role', 'status'); arc.setAttribute('aria-live', 'polite');
+arc.innerHTML = '<div class="ka-items"></div><div class="ka-mid"><b class="ka-head"></b><small class="ka-sub"></small></div><i class="ka-knob"></i>';
+const hint = document.createElement('div'); hint.id = 'kHint'; hint.setAttribute('aria-hidden', 'true');
+document.body.append(black, edge, arc, hint);
+const AW = 460, AR = 160, STEP = 30;                                 // arc width, item radius, degrees between items
 
 let zone = null;
 function drawEdge() {
   edge.innerHTML = P.map((p, i) => `<i style="${i === zone ? `background:${p.col};box-shadow:0 0 18px ${p.col}` : ''}"></i>`).join('');
 }
-let guideT;
-function showGuide() {
-  const s = H.state();
-  guide.innerHTML = P.map((p, i) => `<div class="kg${i === zone ? ' on' : ''}" style="--gc:${p.col}">${msI(p.ic)}<span><b>${p.n}</b><small>${p.small(s)}</small></span></div>`).join('');
-  guide.classList.add('show');
-  clearTimeout(guideT); guideT = setTimeout(() => guide.classList.remove('show'), 1400);
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let arcId = null, arcT, hintT;
+function placeArc() {
+  const x = (zone + 0.5) / P.length * window.innerWidth;
+  arc.style.left = clamp(x, AW / 2 + 8, window.innerWidth - AW / 2 - 8) + 'px';
+  hint.style.left = clamp(x, 268, window.innerWidth - 268) + 'px';
 }
-let popT;
-function showPop(label, withHints) {
-  const p = P[zone], s = H.state(), v = p.show(s), x = (zone + 0.5) / P.length * window.innerWidth;
-  pop.style.left = clamp(x, 150, window.innerWidth - 150) + 'px';
-  pop.style.setProperty('--gc', p.col);
-  pop.innerHTML = `<div class="kh">${v.ic || msI(p.ic)}<span>${p.n}</span>${label ? `<em>${label}</em>` : ''}</div>
-    <div class="kv${v.txt ? ' txt' : ''}">${v.val}</div>
-    <div class="kbar"><i style="width:${Math.round(clamp(v.lvl, 0, 1) * 100)}%"></i></div>
-    <div class="ks">${v.sub}</div>
-    ${withHints ? `<ul class="khint">${p.hints.map(([g, a]) => `<li><b>${g}</b><span>${a}</span></li>`).join('')}</ul>` : ''}`;
-  pop.classList.add('show');
-  clearTimeout(popT); popT = setTimeout(() => pop.classList.remove('show'), withHints ? 2600 : 1600);
+function showArc(label, withHints) {
+  const p = P[zone], sc = p.scale(H.state()), box = arc.querySelector('.ka-items');
+  arc.style.setProperty('--gc', p.col); hint.style.setProperty('--gc', p.col);
+  placeArc();
+  const id = p.key + ':' + sc.id;
+  if (id !== arcId) {                                                // new list: rebuild without animation
+    box.innerHTML = sc.items.map((t, i) => `<span class="ka-i" data-i="${i}">${esc(t)}</span>`).join('');
+    box.classList.add('snap'); arcId = id;
+  }
+  const n = sc.items.length, txt = sc.items.some(t => String(t).length > 6), step = txt ? 40 : STEP;
+  box.classList.toggle('txt', txt);
+  box.querySelectorAll('.ka-i').forEach(el => {
+    let o = +el.dataset.i - sc.cur;
+    if (sc.wrap && n > 4) { if (o > n / 2) o -= n; if (o < -n / 2) o += n; }   // track lists loop round
+    const a = o * step * Math.PI / 180, on = o === 0;
+    el.style.transform = `translate(-50%, -50%) translate(${Math.sin(a) * AR}px, ${-Math.cos(a) * AR}px) rotate(${o * step * 0.7}deg) scale(${on ? 1 : txt ? 0.72 : 0.62})`;
+    el.style.opacity = Math.abs(o) > 2 ? 0 : on ? 1 : Math.abs(o) === 1 ? (txt ? 0.45 : 0.55) : (txt ? 0.18 : 0.25);
+    el.classList.toggle('on', on);
+  });
+  void box.offsetWidth; box.classList.remove('snap');
+  const ic = sc.svg ? svgI(sc.svg) : msI(sc.ic || p.ic);
+  arc.querySelector('.ka-head').innerHTML = ic + '<span>' + esc(sc.head) + '</span>' + (label ? `<em>${esc(label)}</em>` : '');
+  arc.querySelector('.ka-sub').textContent = sc.sub || '';
+  arc.classList.add('show');
+  clearTimeout(arcT); arcT = setTimeout(() => arc.classList.remove('show'), withHints ? 2800 : 2000);
+  if (withHints) {
+    hint.innerHTML = p.hints.map(([g, a]) => `<span><b>${g}</b> ${a}</span>`).join('');
+    hint.classList.add('show');
+    clearTimeout(hintT); hintT = setTimeout(() => hint.classList.remove('show'), 2800);
+  } else hint.classList.remove('show');
 }
+window.addEventListener('resize', () => { if (zone !== null) placeArc(); });
 const trace = l => { if (window.PHMI_TRACE) window.PHMI_TRACE(l); };
 
 /* run one gesture on the selected position */
 function fire(g, k) {
   if (zone === null) { zone = 0; drawEdge(); }
   const p = P[zone];
-  if (!p[g]) { showPop('', true); trace(g + ':' + p.key + ':none'); return; }   // gesture not used here: show what is
+  if (!p[g]) { showArc('', true); trace(g + ':' + p.key + ':none'); return; }   // gesture not used here: show what is
   const label = p[g](H.state(), k);
   H.render();
-  showPop(label, false); showGuide();
+  showArc(g === 'turn' || g === 'hturn' ? '' : label, false);   // the arc already names what a turn changes
   trace(g + ':' + p.key + (k ? (k > 0 ? '+' : '') + k : ''));
 }
 
@@ -204,7 +238,7 @@ document.addEventListener('pointermove', e => {
   if (z === zone) return;
   zone = z;
   cancelTap();
-  drawEdge(); showGuide(); showPop('', true);
+  drawEdge(); showArc('', true);
   trace('slide:' + P[zone].key);
 }, { passive: true });
 
