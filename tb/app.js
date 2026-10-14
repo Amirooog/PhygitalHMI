@@ -3,14 +3,14 @@
 (() => {
 'use strict';
 
-const BUILD = { id: 'TB-3.0.0-dev', line: 'TB', name: 'Touch Baseline' };
+const BUILD = { id: 'TB-3.0.0-dev.2', line: 'TB', name: 'Touch Baseline' };
 
 /* ---------- preferences (per device) ---------- */
 const store = {
   get(k, d) { try { const v = localStorage.getItem('phmi.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('phmi.' + k, JSON.stringify(v)); } catch (e) { /* storage blocked: keep in memory */ } }
 };
-const PREF = Object.assign({ theme: 'auto', accent: 'cyan', safeTop: 28 }, store.get('pref', {}));
+const PREF = Object.assign({ theme: 'auto', accent: 'cyan', safeTop: 28, safeBottom: 0 }, store.get('pref', {}));
 const savePref = () => store.set('pref', PREF);
 
 const ACCENTS = {
@@ -76,7 +76,38 @@ function applyTheme() {
   r.dataset.theme = themeNow();
   r.dataset.accent = PREF.accent;
   r.style.setProperty('--safe-top', PREF.safeTop + 'px');
+  fit();
 }
+/* ---------- screen fit (installed app on iPad) ----------
+   In a home-screen app, iPadOS can already keep a strip free at the bottom of the window.
+   Padding for the home indicator on top of that leaves a blank band, so pad only what the
+   window has not already given up, then add the manual Bottom offset from Settings. */
+let FIT = '';
+const probe = document.createElement('div');
+probe.style.cssText = 'position:fixed;top:0;left:0;width:0;visibility:hidden;pointer-events:none;padding-bottom:env(safe-area-inset-bottom,0px)';
+document.body.appendChild(probe);
+function fit() {
+  const vv = window.visualViewport;
+  const H = Math.round(vv && vv.height ? vv.height : window.innerHeight), W = Math.round(window.innerWidth);
+  const landscape = W >= H;
+  const full = landscape ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+  const reserved = Math.max(0, full - H);                 // space the OS keeps outside our window
+  const inset = parseFloat(getComputedStyle(probe).paddingBottom) || 0;
+  const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true
+    || (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches);
+  const base = standalone ? Math.max(0, inset - reserved) : inset;
+  const want = base + (PREF.safeBottom || 0);
+  const b = Math.max(0, want);
+  const extra = Math.max(0, -want);                        // negative offset: stretch the page into the strip below
+  const r = document.documentElement.style;
+  r.setProperty('--sab', b + 'px');
+  r.setProperty('--vh', (H + extra) + 'px');
+  FIT = `${standalone ? 'app' : 'browser'} · window ${W}×${H} · screen ${screen.width}×${screen.height} · inset ${Math.round(inset)} · reserved ${reserved} · bottom ${b}`;
+}
+window.addEventListener('resize', fit);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', fit);
+window.addEventListener('orientationchange', () => setTimeout(fit, 350));
+
 if (mq) { const f = () => { applyTheme(); if (S.screen === 'settings') render(); }; mq.addEventListener ? mq.addEventListener('change', f) : mq.addListener(f); }
 
 /* ---------- rail ---------- */
@@ -202,7 +233,9 @@ function settings() {
     <div class="srow"><div><div class="lbl">Accent colour</div><div class="sub">${ACCENTS[PREF.accent].name}</div></div><div class="swatches">${sw}</div></div>
     <div class="srow"><div><div class="lbl">Top offset</div><div class="sub">Keeps controls clear of the blurred band at the top of the screen</div></div>
       <div class="stepper"><button ${A('safetop', '-')} aria-label="Less">${ms('remove')}</button><b>${PREF.safeTop} px</b><button ${A('safetop', '+')} aria-label="More">${ms('add')}</button></div></div>
-    <div class="about"><span>${BUILD.name}</span><span>${BUILD.id}</span></div>
+    <div class="srow"><div><div class="lbl">Bottom offset</div><div class="sub">Removes a blank band under the bar, or adds space if the bar sits too low</div></div>
+      <div class="stepper"><button ${A('safebottom', '-')} aria-label="Less">${ms('remove')}</button><b>${PREF.safeBottom > 0 ? '+' : ''}${PREF.safeBottom} px</b><button ${A('safebottom', '+')} aria-label="More">${ms('add')}</button></div></div>
+    <div class="about"><span>${BUILD.name} · ${esc(FIT)}</span><span>${BUILD.id}</span></div>
   </div>`;
 }
 
@@ -326,7 +359,8 @@ const ACT = {
   zoom(v) { S.zoom = clamp(S.zoom * (v === '+' ? 1.25 : 0.8), 0.5, 2.5); },
   theme(v) { PREF.theme = v; savePref(); },
   accent(v) { if (ACCENTS[v]) { PREF.accent = v; savePref(); } },
-  safetop(v) { PREF.safeTop = clamp(PREF.safeTop + (v === '+' ? 4 : -4), 0, 80); savePref(); }
+  safetop(v) { PREF.safeTop = clamp(PREF.safeTop + (v === '+' ? 4 : -4), 0, 80); savePref(); },
+  safebottom(v) { PREF.safeBottom = clamp(PREF.safeBottom + (v === '+' ? 4 : -4), -60, 60); savePref(); }
 };
 
 $('#app').addEventListener('click', e => {

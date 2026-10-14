@@ -1,7 +1,8 @@
 /* TB-3.0.0 layout and components. Colours come from ../shared/tokens.css */
 
 * { box-sizing: border-box; }
-html, body { position: fixed; inset: 0; margin: 0; overflow: hidden; background: var(--bar-bg); }
+:root { --sab: env(safe-area-inset-bottom, 0px); }
+html, body { position: fixed; top: 0; left: 0; right: 0; height: var(--vh, 100%); margin: 0; overflow: hidden; background: var(--bar-bg); }
 body {
   font-family: var(--font-ui); color: var(--tx); font-size: var(--fs-body);
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
@@ -12,7 +13,7 @@ button:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
 [hidden] { display: none !important; }
 svg.i { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
-#app { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) calc(100px + env(safe-area-inset-bottom, 0px)); }
+#app { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) calc(100px + var(--sab)); }
 
 /* ---------- stage: map + rail + screen ---------- */
 #stage { position: relative; overflow: hidden; border-radius: 28px 28px 0 0; background: var(--map); }
@@ -160,7 +161,7 @@ svg.i { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-widt
 #bar {
   overflow: hidden; min-width: 0;
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 0 20px env(safe-area-inset-bottom, 0px); background: var(--bar-bg); color: var(--bar-tx);
+  padding: 0 20px var(--sab); background: var(--bar-bg); color: var(--bar-tx);
 }
 #bar .grp { display: flex; align-items: center; gap: 6px; }
 #bar .tpill { display: flex; align-items: center; height: 72px; padding: 0 4px; border-radius: 36px; background: var(--bar-pill); }
@@ -185,7 +186,7 @@ svg.i { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-widt
 
 /* ---------- popover + toast ---------- */
 #pop {
-  position: absolute; right: 200px; bottom: calc(108px + env(safe-area-inset-bottom, 0px)); z-index: 20;
+  position: absolute; right: 200px; bottom: calc(108px + var(--sab)); z-index: 20;
   display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 34px; color: var(--tx);
 }
 #pop button { width: 56px; height: 56px; border-radius: 28px; display: grid; place-items: center; background: rgba(127, 127, 127, .16); }
