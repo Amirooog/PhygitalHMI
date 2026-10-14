@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-accent="cyan">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>XP · Mouse probe</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="../../shared/tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--map); color: var(--tx); font-family: var(--font-ui);
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+  body { padding: calc(var(--safe-top) + 12px) 16px 16px; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+  h1 { margin: 0; font-size: 22px; font-weight: 600; }
+  h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--tx3); }
+  p { margin: 0; color: var(--tx2); font-size: 14px; line-height: 1.5; }
+  .checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .chk { padding: 12px 14px; border-radius: 16px; background: var(--card2); display: flex; flex-direction: column; gap: 4px; }
+  .chk b { font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .chk b i { width: 12px; height: 12px; border-radius: 50%; background: var(--off); flex: none; }
+  .chk.ok b i { background: #5BD08A; } .chk.bad b i { background: #F0605A; } .chk.warn b i { background: #F2B84B; }
+  .chk span { font-size: 13px; color: var(--tx2); font-variant-numeric: tabular-nums; }
+  /* sliding knob simulation */
+  .rail { position: relative; height: 120px; border-radius: 60px; background: var(--card2); display: grid; grid-template-columns: repeat(4, 1fr); align-items: center; }
+  .pos { text-align: center; font-size: 14px; color: var(--tx3); z-index: 1; display: flex; flex-direction: column; gap: 4px; }
+  .pos b { font-size: 26px; font-weight: 400; color: var(--tx2); font-variant-numeric: tabular-nums; }
+  .pos.on { color: var(--acc); } .pos.on b { color: var(--tx); }
+  .pos.off b { text-decoration: line-through; opacity: .5; }
+  .knob { position: absolute; top: 10px; width: 100px; height: 100px; margin-left: -50px; border-radius: 50%; background: var(--tile); border: 2px solid var(--acc); box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+  .knob::after { content: ""; position: absolute; left: 50%; top: 8px; width: 4px; height: 18px; margin-left: -2px; border-radius: 2px; background: var(--acc); transform-origin: 2px 42px; transform: rotate(var(--rot, 0deg)); }
+  .readout { display: flex; justify-content: space-between; font-size: 14px; color: var(--tx2); font-variant-numeric: tabular-nums; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  button { font: inherit; border: 0; border-radius: 22px; min-height: 44px; padding: 0 16px; background: var(--card2); color: var(--tx); font-weight: 600; cursor: pointer; }
+  button.on { background: var(--acc); color: var(--sel-tx); }
+  .sens { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--tx2); }
+  .log { flex: 1; min-height: 0; overflow: auto; font: 12px ui-monospace, monospace; color: var(--tx2); background: var(--card2); border-radius: 14px; padding: 10px; white-space: pre; }
+  .pad { position: fixed; inset: 0; z-index: -1; }
+</style>
+</head>
+<body>
+<div class="pad" id="pad"></div>
+
+<section class="card">
+  <h1>Mouse probe · Sliding Knob test</h1>
+  <p>Connect the Bluetooth mouse to this iPad, then: slide the mouse sideways, roll the wheel, press the wheel down. Each check turns green when it works.</p>
+  <div class="checks">
+    <div class="chk" id="cMove"><b><i></i>Sideways movement</b><span id="tMove">Move the mouse left and right</span></div>
+    <div class="chk" id="cEdge"><b><i></i>Screen edge</b><span id="tEdge">Keep moving left past the edge</span></div>
+    <div class="chk" id="cWheel"><b><i></i>Wheel steps</b><span id="tWheel">Roll the wheel a few notches</span></div>
+    <div class="chk" id="cMid"><b><i></i>Wheel press</b><span id="tMid">Press the wheel down like a button</span></div>
+  </div>
+
+  <h2>Sliding Knob simulation</h2>
+  <div class="rail" id="rail">
+    <div class="pos" data-i="0"><span>Temperature</span><b id="v0">22.0°</b></div>
+    <div class="pos" data-i="1"><span>Fan</span><b id="v1">3</b></div>
+    <div class="pos" data-i="2"><span>Volume</span><b id="v2">14</b></div>
+    <div class="pos" data-i="3"><span>Seat heat</span><b id="v3">0</b></div>
+    <div class="knob" id="knob"></div>
+  </div>
+  <div class="readout"><span id="rPos">Position: –</span><span id="rAcc">Slide: 0 px</span><span id="rLock">Lock: ready</span></div>
+  <div class="row">
+    <button id="bLock" class="on">Lock slide while turning: on</button>
+    <button id="bMap">Mapping: add up movement</button>
+    <button id="bPL">Try pointer lock</button>
+    <span class="sens">Rail length <button id="sm">−</button><b id="sv">600</b> px of mouse travel <button id="sp">+</button></span>
+  </div>
+  <p>Slide = choose the function · Wheel = change its value · Wheel press = on/off. Push the mouse hard against the left end to recalibrate (that is the end stop on the real rail).</p>
+</section>
+
+<section class="card">
+  <div class="row" style="justify-content:space-between"><h2>Raw events</h2><div class="row"><button id="bCopy">Copy report</button><button id="bClear">Clear</button></div></div>
+  <div class="readout"><span id="sPtr">pointer: –</span><span id="sXY">x –</span><span id="sMv">Δx –</span></div>
+  <div class="log" id="log"></div>
+  <p id="msg">Send me the report (Copy report → paste in the chat).</p>
+</section>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const ua = navigator.userAgent;
+
+/* ---------- probe state ---------- */
+const R = { moves: 0, moveX: 0, pointerType: '-', edgeHits: 0, edgeStuck: 0, edgeX: null, wheel: [], wheelMode: '-', mid: 0, midVia: '-',
+  buttons: {}, plSupported: 'requestPointerLock' in document.body, plState: 'not tried', start: Date.now() };
+const logLines = [];
+function log(t) { logLines.unshift(new Date().toISOString().slice(11, 23) + '  ' + t); if (logLines.length > 60) logLines.pop(); $('#log').textContent = logLines.join('\n'); }
+function setChk(id, cls, text) { const c = $('#' + id); c.className = 'chk ' + cls; c.querySelector('span').textContent = text; }
+
+/* ---------- sliding knob model ---------- */
+let RAIL = 600;                 // mouse px for the full rail
+let acc = 0;                    // accumulated slide, clamped 0..RAIL (end stops = calibration)
+let lockSlide = true, lastWheel = 0, rot = 0, mapAbs = false;   // mapAbs: knob position = cursor position on screen
+const vals = [22.0, 3, 14, 0], on = [true, true, true, true];
+const fmt = i => i === 0 ? vals[0].toFixed(1) + '°' : String(vals[i]);
+function posIndex() { return Math.min(3, Math.floor(acc / RAIL * 4)); }
+function draw() {
+  const rail = $('#rail'), w = rail.clientWidth, i = posIndex();
+  const centre = (i + 0.5) / 4 * w;                       // knob snaps to the detent centre
+  $('#knob').style.left = centre + 'px';
+  $('#knob').style.setProperty('--rot', rot + 'deg');
+  document.querySelectorAll('.pos').forEach(p => { const k = +p.dataset.i; p.classList.toggle('on', k === i); p.classList.toggle('off', !on[k]); });
+  for (let k = 0; k < 4; k++) $('#v' + k).textContent = fmt(k);
+  $('#rPos').textContent = 'Position: ' + ['Temperature', 'Fan', 'Volume', 'Seat heat'][i];
+  $('#rAcc').textContent = 'Slide: ' + Math.round(acc) + ' / ' + RAIL + ' px';
+}
+function slide(dx, x) {
+  if (lockSlide && performance.now() - lastWheel < 350) { $('#rLock').textContent = 'Lock: slide ignored (turning)'; return; }
+  $('#rLock').textContent = 'Lock: ready';
+  const before = posIndex();
+  acc = mapAbs ? Math.max(0, Math.min(RAIL, x / Math.max(1, window.innerWidth - 1) * RAIL)) : Math.max(0, Math.min(RAIL, acc + dx));
+  if (posIndex() !== before) log('detent → ' + ['Temperature', 'Fan', 'Volume', 'Seat heat'][posIndex()]);
+  draw();
+}
+function turn(steps) {
+  const i = posIndex(); lastWheel = performance.now(); rot += steps * 15;
+  if (!on[i]) { draw(); return; }
+  if (i === 0) vals[0] = Math.max(16, Math.min(28, +(vals[0] + steps * 0.5).toFixed(1)));
+  if (i === 1) vals[1] = Math.max(1, Math.min(7, vals[1] + steps));
+  if (i === 2) vals[2] = Math.max(0, Math.min(30, vals[2] + steps));
+  if (i === 3) vals[3] = Math.max(0, Math.min(3, vals[3] + steps));
+  draw();
+}
+
+/* ---------- pointer movement ---------- */
+let lastX = null, edgeRun = 0;
+document.addEventListener('pointermove', e => {
+  R.pointerType = e.pointerType; R.moves++;
+  const dx = (typeof e.movementX === 'number' && e.movementX !== 0) ? e.movementX : (lastX == null ? 0 : e.clientX - lastX);
+  const viaMovement = typeof e.movementX === 'number' && e.movementX !== 0;
+  lastX = e.clientX;
+  R.moveX += Math.abs(dx);
+  $('#sPtr').textContent = 'pointer: ' + e.pointerType + (document.pointerLockElement ? ' (locked)' : '');
+  $('#sXY').textContent = 'x ' + Math.round(e.clientX);
+  $('#sMv').textContent = 'Δx ' + dx.toFixed(1) + (viaMovement ? ' (movementX)' : ' (from x)');
+  if (R.moveX > 300) setChk('cMove', e.pointerType === 'mouse' ? 'ok' : 'warn', `${R.moves} events · ${e.pointerType} · ${viaMovement ? 'movementX works' : 'only position, no movementX'}`);
+  /* edge: the cursor sits at x≈0 (or the right edge) while events keep arriving */
+  const atEdge = e.clientX <= 1 || e.clientX >= window.innerWidth - 2;
+  if (atEdge) {
+    if (!R.edgeHits) setChk('cEdge', 'warn', 'Cursor reached the edge. Keep pushing: if Δx stays 0 or events stop, movement is lost there.');
+    R.edgeHits++; R.edgeX = Math.round(e.clientX);
+    if (Math.abs(dx) < 0.5) edgeRun++; else edgeRun = 0;
+    if (edgeRun > 6) { R.edgeStuck++; setChk('cEdge', document.pointerLockElement ? 'warn' : 'bad', 'Stops at the edge: movement is lost there. Try pointer lock.'); }
+    else if (Math.abs(dx) >= 0.5) setChk('cEdge', 'ok', 'Movement keeps coming at the edge');
+  }
+  if (e.pointerType === 'mouse' || document.pointerLockElement) slide(dx, e.clientX);
+}, { passive: true });
+
+/* ---------- wheel ---------- */
+let wheelAcc = 0;
+document.addEventListener('wheel', e => {
+  e.preventDefault();
+  const mode = ['pixel', 'line', 'page'][e.deltaMode] || e.deltaMode;
+  R.wheelMode = mode; R.wheel.push(+e.deltaY.toFixed(2)); if (R.wheel.length > 40) R.wheel.shift();
+  log(`wheel deltaY ${e.deltaY.toFixed(2)} (${mode})`);
+  /* one notch = one step; scale pixel deltas so 1 notch ≈ 1 step */
+  const unit = e.deltaMode === 1 ? 1 : 50;
+  wheelAcc += e.deltaY / unit;
+  const steps = wheelAcc > 0 ? Math.floor(wheelAcc) : Math.ceil(wheelAcc);
+  if (steps) { wheelAcc -= steps; turn(-steps); }
+  const uniq = [...new Set(R.wheel.map(v => Math.abs(v)))].slice(0, 4).join(', ');
+  if (R.wheel.length >= 3) setChk('cWheel', 'ok', `${R.wheel.length} events · ${mode} · sizes ${uniq}`);
+}, { passive: false });
+
+/* ---------- buttons: left, middle (wheel press), right ---------- */
+function btn(e, via) {
+  R.buttons[e.button] = (R.buttons[e.button] || 0) + 1;
+  log(`${via} button=${e.button} pointerType=${e.pointerType || '-'}`);
+  if (e.button === 1) {
+    e.preventDefault();
+    R.mid++; R.midVia = via;
+    const i = posIndex(); on[i] = !on[i]; draw();
+    setChk('cMid', 'ok', `Detected ${R.mid}× via ${via}`);
+  }
+}
+document.addEventListener('pointerdown', e => btn(e, 'pointerdown'));
+document.addEventListener('auxclick', e => { if (e.button === 1 && !R.mid) btn(e, 'auxclick'); });
+document.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ---------- controls ---------- */
+$('#bLock').onclick = () => { lockSlide = !lockSlide; $('#bLock').classList.toggle('on', lockSlide); $('#bLock').textContent = 'Lock slide while turning: ' + (lockSlide ? 'on' : 'off'); };
+$('#sm').onclick = () => { RAIL = Math.max(200, RAIL - 100); acc = Math.min(acc, RAIL); $('#sv').textContent = RAIL; draw(); };
+$('#sp').onclick = () => { RAIL = Math.min(2000, RAIL + 100); $('#sv').textContent = RAIL; draw(); };
+$('#bPL').onclick = async () => {
+  if (!R.plSupported) { R.plState = 'not supported'; $('#bPL').textContent = 'Pointer lock: not supported'; log('pointer lock not supported'); return; }
+  try { await document.body.requestPointerLock(); } catch (err) { R.plState = 'refused: ' + err.name; log('pointer lock refused ' + err.name); }
+};
+document.addEventListener('pointerlockchange', () => {
+  const locked = !!document.pointerLockElement; R.plState = locked ? 'works' : (R.plState === 'works' ? 'released' : R.plState);
+  $('#bPL').textContent = locked ? 'Pointer lock: ON (Esc to release)' : 'Try pointer lock'; $('#bPL').classList.toggle('on', locked);
+  log('pointer lock ' + (locked ? 'on' : 'off'));
+});
+document.addEventListener('pointerlockerror', () => { R.plState = 'error'; log('pointer lock error'); $('#bPL').textContent = 'Pointer lock: error'; });
+$('#bMap').onclick = () => { mapAbs = !mapAbs; $('#bMap').classList.toggle('on', mapAbs); $('#bMap').textContent = 'Mapping: ' + (mapAbs ? 'cursor position (screen edges = end stops)' : 'add up movement'); log('mapping ' + (mapAbs ? 'absolute' : 'relative')); };
+$('#bClear').onclick = () => { logLines.length = 0; $('#log').textContent = ''; };
+$('#bCopy').onclick = async () => {
+  const rep = [
+    'MOUSE PROBE REPORT', 'device: ' + ua, 'screen ' + screen.width + 'x' + screen.height + ' · window ' + innerWidth + 'x' + innerHeight,
+    'pointerType: ' + R.pointerType + ' · move events: ' + R.moves + ' · total |dx|: ' + Math.round(R.moveX),
+    'edge hits: ' + R.edgeHits + ' · edge stuck: ' + R.edgeStuck,
+    'wheel mode: ' + R.wheelMode + ' · last deltas: ' + R.wheel.slice(-12).join(' '),
+    'middle press: ' + R.mid + ' via ' + R.midVia + ' · buttons: ' + JSON.stringify(R.buttons),
+    'pointer lock: supported=' + R.plSupported + ' state=' + R.plState + ' · mapping: ' + (mapAbs ? 'absolute' : 'relative'),
+    'checks: ' + ['cMove', 'cEdge', 'cWheel', 'cMid'].map(id => id.slice(1) + '=' + ($('#' + id).className.split(' ')[1] || 'untested')).join(' ')
+  ].join('\n');
+  try { await navigator.clipboard.writeText(rep); $('#msg').textContent = 'Report copied. Paste it in the chat.'; }
+  catch (e) { $('#log').textContent = rep; $('#msg').textContent = 'Clipboard blocked: the report is in the box above, select and copy it.'; }
+};
+window.addEventListener('resize', draw);
+draw();
+log('ready · ' + (('ontouchstart' in window) ? 'touch device' : 'no touch'));
+})();
+</script>
+</body>
+</html>
