@@ -151,11 +151,16 @@ document.addEventListener('pointermove', e => {
 }, { passive: true });
 
 /* ---------- wheel ---------- */
-let wheelAcc = 0;
+let wheelAcc = 0, lastWheelT = 0;
+R.bursts = [];   // one burst = wheel events less than 150 ms apart (one notch, or one quick roll)
 document.addEventListener('wheel', e => {
   e.preventDefault();
   const mode = ['pixel', 'line', 'page'][e.deltaMode] || e.deltaMode;
   R.wheelMode = mode; R.wheel.push(+e.deltaY.toFixed(2)); if (R.wheel.length > 40) R.wheel.shift();
+  const now = performance.now();
+  if (now - lastWheelT > 150 || !R.bursts.length) R.bursts.push({ n: 0, sum: 0 });
+  const bu = R.bursts[R.bursts.length - 1]; bu.n++; bu.sum += e.deltaY; lastWheelT = now;
+  if (R.bursts.length > 30) R.bursts.shift();
   log(`wheel deltaY ${e.deltaY.toFixed(2)} (${mode})`);
   /* one notch = one step; scale pixel deltas so 1 notch ≈ 1 step */
   const unit = e.deltaMode === 1 ? 1 : 50;
@@ -204,6 +209,7 @@ $('#bCopy').onclick = async () => {
     'pointerType: ' + R.pointerType + ' · move events: ' + R.moves + ' · total |dx|: ' + Math.round(R.moveX),
     'edge hits: ' + R.edgeHits + ' · edge stuck: ' + R.edgeStuck,
     'wheel mode: ' + R.wheelMode + ' · last deltas: ' + R.wheel.slice(-12).join(' '),
+    'wheel bursts (events/sum): ' + R.bursts.map(b => b.n + '/' + Math.round(b.sum)).join('  '),
     'middle press: ' + R.mid + ' via ' + R.midVia + ' · buttons: ' + JSON.stringify(R.buttons),
     'pointer lock: supported=' + R.plSupported + ' state=' + R.plState + ' · mapping: ' + (mapAbs ? 'absolute' : 'relative'),
     'checks: ' + ['cMove', 'cEdge', 'cWheel', 'cMid'].map(id => id.slice(1) + '=' + ($('#' + id).className.split(' ')[1] || 'untested')).join(' ')
