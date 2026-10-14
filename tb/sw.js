@@ -1,5 +1,5 @@
 // Offline support for the Touch Baseline. Bump VERSION with every build; it must match BUILD and app.js.
-const VERSION = 'TB-3.0.0-dev.2';
+const VERSION = 'TB-3.0.0-dev.3';
 const SHELL = ['./', 'index.html', 'app.css', 'app.js', 'manifest.webmanifest', '../shared/tokens.css',
   'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png'];
 

@@ -23,4 +23,7 @@ TB-1.0.0 to TB-2.1.0 (20 Sep 2026) were built in the `cabin-hmi` repo. No partic
 - Design direction D: persistent climate bar, side rail, map with matte-glass cards, dark and light themes with Auto, accent colour chosen in Settings.
 - Climate: temperature scroll wheels (0.5° steps), icon tiles with level dashes, no ON/OFF text.
 - Front/rear defrost are physical keys in both prototypes and are removed from the screen. Tasks T7 and T8 are dropped from the timed comparison (9 tasks remain).
-- Top safe offset for the iPadOS status-bar blur (researcher setting).
+- Top safe offset for the iPadOS status-bar blur, and a bottom offset with automatic fit for the installed app (Settings).
+- Screens: Home, Navigation (search with on-screen keyboard, route preview, 40 s simulated drive, arrival), Media (Bluetooth / FM radio / USB, library, presets), Phone (recents, contacts, keypad, call screen), Climate, Vehicle (EV: drive modes Range/Everyday/Sport/Snow with regen, steering and ride; charging with limit, off-peak schedule, charge port), Settings.
+- The car is an EV: battery level in the side rail, Vehicle in the dock.
+- dev.3 checked headless: all 9 task end states reachable (T1–T6, T9–T11).
