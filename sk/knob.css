@@ -1,0 +1,45 @@
+/* Sliding Knob digital layer: edge colour, fading guide, value pop-up. */
+html.knob-nocursor, html.knob-nocursor * { cursor: none !important; }
+
+/* edge colour: a strip on the screen's lower edge, right above the physical rail */
+#kEdge { position: fixed; left: 0; right: 0; bottom: 0; height: 6px; z-index: 60; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 6px; pointer-events: none; }
+#kEdge i { display: block; border-radius: 3px 3px 0 0; background: rgba(255, 255, 255, .08); transition: background-color .2s, box-shadow .2s; }
+
+/* fading guide: the four positions, shown while sliding or turning */
+#kGuide {
+  position: fixed; left: 0; right: 0; bottom: calc(100px + var(--sab, 0px) + 12px); z-index: 55;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 0 16px;
+  pointer-events: none; opacity: 0; transform: translateY(8px); transition: opacity .25s, transform .25s;
+}
+#kGuide.show { opacity: 1; transform: none; }
+#kGuide .kg {
+  display: flex; align-items: center; gap: 12px; height: 72px; padding: 0 16px; border-radius: 22px;
+  background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge); color: var(--tx2);
+}
+#kGuide .kg .ms { font-size: 28px; }
+#kGuide .kg svg.i { width: 28px; height: 28px; }
+#kGuide .kg span { display: flex; flex-direction: column; min-width: 0; }
+#kGuide .kg b { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#kGuide .kg small { font-size: 14px; font-variant-numeric: tabular-nums; }
+#kGuide .kg.on { color: var(--tx); border-color: var(--gc); box-shadow: inset 0 0 0 1.5px var(--gc), 0 0 24px color-mix(in srgb, var(--gc) 35%, transparent); }
+#kGuide .kg.on .ms, #kGuide .kg.on svg.i { color: var(--gc); }
+
+/* value pop-up: above the selected position, while turning or pressing */
+#kPop {
+  position: fixed; bottom: calc(100px + var(--sab, 0px) + 100px); z-index: 56; width: 260px; margin-left: -130px;
+  padding: 16px 18px; border-radius: 26px; display: flex; flex-direction: column; gap: 8px;
+  background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge); box-shadow: var(--glass-shadow);
+  pointer-events: none; opacity: 0; transform: translateY(10px) scale(.97); transition: opacity .2s, transform .2s;
+}
+#kPop.show { opacity: 1; transform: none; }
+#kPop .kh { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--tx2); }
+#kPop .kh .ms { font-size: 24px; color: var(--gc); }
+#kPop .kh svg.i { width: 24px; height: 24px; color: var(--gc); }
+#kPop .kh em { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gc); }
+#kPop .kv { font-size: 48px; font-weight: 300; letter-spacing: -.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+#kPop .kbar { height: 6px; border-radius: 3px; background: rgba(127, 127, 127, .25); }
+#kPop .kbar i { display: block; height: 6px; border-radius: 3px; background: var(--gc); transition: width .15s; }
+#kPop .ks { font-size: 13px; color: var(--tx3); }
+@media (prefers-reduced-motion: reduce) { #kGuide, #kPop { transition: none; } }

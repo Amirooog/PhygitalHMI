@@ -45,6 +45,7 @@ function closePanel() { rp.hidden = true; }
 /* ---------- touch log (only while a trial runs; taps on the clock are never counted) ---------- */
 H.root.addEventListener('pointerdown', e => {
   if (!trial || !trial.running || e.target.closest('.clock')) return;
+  if (e.pointerType === 'mouse' && H.app === 'SK') return;   // in SK the mouse is the knob: logged through PHMI_TRACE, never as a touch
   const t = Math.round(performance.now() - trial.start);
   const el = e.target.closest('[data-a]'), wh = e.target.closest('.wheel');
   const lbl = el ? el.dataset.a + (el.dataset.v !== undefined ? ':' + el.dataset.v : '') : wh ? 'wheel:' + wh.dataset.wheel : 'miss';
@@ -55,6 +56,15 @@ H.root.addEventListener('pointerdown', e => {
   if (trial.first == null) trial.first = t;
   if (trial.path.length < 400) trial.path.push(blind ? { t, a: lbl, s: H.state().screen, o: 1 } : { t, a: lbl, s: H.state().screen });
 }, true);
+
+/* ---------- knob actions (SK): slide to a new position, turn one step, press ---------- */
+window.PHMI_TRACE = label => {
+  if (!trial || !trial.running) return;
+  const t = Math.round(performance.now() - trial.start);
+  trial.knob++;
+  if (trial.firstKnob == null) trial.firstKnob = t;
+  if (trial.path.length < 400) trial.path.push({ t, a: 'k:' + label, s: H.state().screen });
+};
 
 /* ---------- running a task ---------- */
 function startTask(id) {
@@ -74,7 +84,7 @@ function startTask(id) {
     const p = H.prefs();
     trial = {
       task, base: clone(H.state()), start: performance.now(), startedAt: new Date().toISOString(),
-      touches: 0, misses: 0, first: null, path: [], running: true, theme: p.theme, accent: p.accent, occ: null
+      touches: 0, misses: 0, first: null, knob: 0, firstKnob: null, path: [], running: true, theme: p.theme, accent: p.accent, occ: null
     };
     H.lock.trial = true;
     if (SES.occ.on) { trial.occ = { open: true, openAt: performance.now(), tsot: 0, intervals: 1, touches: 0, o: SES.occ.open, c: SES.occ.closed, timer: null }; occCycle(); }
@@ -107,7 +117,7 @@ function finish(result) {
     participant: SES.participant || '—', condition: SES.condition || '',
     task: trial.task.id, level: trial.task.lv, result,
     durationMs: Math.round(end - trial.start), firstTouchMs: trial.first,
-    touches: trial.touches, misses: trial.misses,
+    touches: trial.touches, misses: trial.misses, knob: trial.knob, firstKnobMs: trial.firstKnob,
     screens: [...new Set(trial.path.map(p => p.s))], path: trial.path,
     theme: trial.theme, accent: trial.accent,
     occlusion: o ? `${o.o}/${o.c}` : 'off', tsotMs: o ? Math.round(o.tsot) : null,
@@ -135,7 +145,7 @@ function renderPanel() {
     ? `<div class="rlive"><b>Running ${trial.task.id} — ${esc(trial.task.text)}</b>
         <span class="rnote" id="rLive">${trial.touches} touches · ${s1(performance.now() - trial.start)} s${trial.occ ? ' · occlusion on' : ''}</span>
         <div class="rfr"><button class="rb x" data-r="abort">End as not completed</button><button class="rb" data-r="close">Back to participant</button></div></div>`
-    : (R[0] ? `<div class="rlive"><b class="res-${R[0].result}">${R[0].task} · ${R[0].result} · ${s1(R[0].durationMs)} s · ${R[0].touches} touches (${R[0].misses} missed)${R[0].tsotMs != null ? ' · TSOT ' + s1(R[0].tsotMs) + ' s' : ''}</b><span class="rnote">${esc(note)}</span></div>` : '');
+    : (R[0] ? `<div class="rlive"><b class="res-${R[0].result}">${R[0].task} · ${R[0].result} · ${s1(R[0].durationMs)} s · ${R[0].touches} touches (${R[0].misses} missed)${R[0].knob ? ' · ' + R[0].knob + ' knob' : ''}${R[0].tsotMs != null ? ' · TSOT ' + s1(R[0].tsotMs) + ' s' : ''}</b><span class="rnote">${esc(note)}</span></div>` : '');
   rp.innerHTML = `<div class="rpi">
     <header><b>Researcher · ${esc(H.app)} · ${esc(H.build)}</b><button class="rb" data-r="close">Close</button></header>
     <div class="rbody">
@@ -156,8 +166,8 @@ function renderPanel() {
         ${TASKS.map(k => `<div class="rtr"><span class="rc">${k.id}<small>${k.lv}</small></span><span class="rd">${esc(k.text)}</span><button class="rb a" data-r="run" data-v="${k.id}" ${trial && trial.running ? 'disabled' : ''}>Run</button></div>`).join('')}
       </div></section>
       <section><h4>Trials on this iPad (${R.length})</h4>
-        <div class="rtw"><table><thead><tr><th>Build</th><th>P</th><th>Task</th><th>Result</th><th>Time s</th><th>Touches</th><th>Miss</th><th>TSOT s</th><th>Theme</th></tr></thead><tbody>
-        ${R.slice(0, 60).map(r => `<tr><td>${esc(r.build)}</td><td>${esc(r.participant)}</td><td>${r.task}</td><td class="res-${r.result}">${r.result}</td><td>${s1(r.durationMs)}</td><td>${r.touches}</td><td>${r.misses}</td><td>${s1(r.tsotMs)}</td><td>${esc(r.theme)}/${esc(r.accent)}</td></tr>`).join('') || '<tr><td colspan="9" class="rnote">No trials yet. Run a task above.</td></tr>'}
+        <div class="rtw"><table><thead><tr><th>Build</th><th>P</th><th>Task</th><th>Result</th><th>Time s</th><th>Touches</th><th>Miss</th><th>Knob</th><th>TSOT s</th><th>Theme</th></tr></thead><tbody>
+        ${R.slice(0, 60).map(r => `<tr><td>${esc(r.build)}</td><td>${esc(r.participant)}</td><td>${r.task}</td><td class="res-${r.result}">${r.result}</td><td>${s1(r.durationMs)}</td><td>${r.touches}</td><td>${r.misses}</td><td>${r.knob || 0}</td><td>${s1(r.tsotMs)}</td><td>${esc(r.theme)}/${esc(r.accent)}</td></tr>`).join('') || '<tr><td colspan="10" class="rnote">No trials yet. Run a task above.</td></tr>'}
         </tbody></table></div>
         <div class="rfr"><button class="rb a" data-r="export">Export CSV</button><button class="rb" data-r="copy">Copy CSV</button><button class="rb x" data-r="clear" ${R.length ? '' : 'disabled'}>Delete all trials</button></div>
         <div id="rMsg" class="rnote"></div>
@@ -189,7 +199,7 @@ rp.addEventListener('click', async e => {
 });
 setInterval(() => {
   if (rp.hidden || !trial || !trial.running) return;
-  const l = rp.querySelector('#rLive'); if (l) l.textContent = `${trial.touches} touches · ${s1(performance.now() - trial.start)} s${trial.occ ? ' · occlusion on' : ''}`;
+  const l = rp.querySelector('#rLive'); if (l) l.textContent = `${trial.touches} touches · ${trial.knob} knob · ${s1(performance.now() - trial.start)} s${trial.occ ? ' · occlusion on' : ''}`;
 }, 500);
 
 /* let the app ask whether a trial is running (e.g. to hold back a reload) */

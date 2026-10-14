@@ -1,9 +1,11 @@
-/* PhygitalHMI · Touch Baseline (TB) — app logic.
-   Screens: Home, Navigation, Media, Phone, Climate, Settings. Researcher mode and trial logging live in ../shared/. */
+/* PhygitalHMI — the in-cabin screen, shared by TB (Touch Baseline) and SK (Sliding Knob).
+   Each app sets window.HMI_CONFIG (build id, line, name) before loading this file.
+   SK adds its knob layer through HMI.extend(); researcher mode and logging are in researcher.js. */
 (() => {
 'use strict';
 
-const BUILD = { id: 'TB-3.0.0-dev.4', line: 'TB', name: 'Touch Baseline' };
+const BUILD = Object.assign({ id: 'TB-dev', line: 'TB', name: 'Touch Baseline' }, window.HMI_CONFIG || {});
+const EXT = { settings: [], actions: {}, afterRender: [] };   // filled by HMI.extend()
 
 /* ---------- preferences (per device) ---------- */
 const store = {
@@ -563,6 +565,7 @@ function settings() {
       <div class="stepper"><button ${A('safetop', '-')} aria-label="Less">${ms('remove')}</button><b>${PREF.safeTop} px</b><button ${A('safetop', '+')} aria-label="More">${ms('add')}</button></div></div>
     <div class="srow"><div><div class="lbl">Bottom offset</div><div class="sub">Removes a blank band under the bar, or adds space if the bar sits too low</div></div>
       <div class="stepper"><button ${A('safebottom', '-')} aria-label="Less">${ms('remove')}</button><b>${PREF.safeBottom > 0 ? '+' : ''}${PREF.safeBottom} px</b><button ${A('safebottom', '+')} aria-label="More">${ms('add')}</button></div></div>
+    ${EXT.settings.map(f => f()).join('')}
     <div class="about"><span>${BUILD.name} · ${esc(FIT)}</span><span>${BUILD.id}</span></div>
   </div>`;
 }
@@ -582,6 +585,7 @@ function render() {
   main.querySelectorAll('[data-scroll]').forEach(e => { if (keep[e.dataset.scroll] != null) e.scrollTop = keep[e.dataset.scroll]; });
   $('#map').style.backgroundSize = [70, 70, 350, 350].map(n => (n * S.zoom) + 'px ' + (n * S.zoom) + 'px').join(', ');
   initWheels();
+  EXT.afterRender.forEach(f => f());
 }
 
 /* ---------- temperature wheels ---------- */
@@ -759,9 +763,10 @@ $('#app').addEventListener('click', e => {
   const wi = e.target.closest('.wi');
   if (wi) { const w = wi.closest('.wheel'); w._prog = false; w.scrollTo({ top: +wi.dataset.i * IH, behavior: 'smooth' }); return; }
   const el = e.target.closest('[data-a]');
-  if (!el || !ACT[el.dataset.a]) return;
+  const fn = el && (ACT[el.dataset.a] || EXT.actions[el.dataset.a]);
+  if (!fn) return;
   if (el.dataset.a === 'closesheet' && e.target !== el) return;   // taps inside the sheet don't close it
-  ACT[el.dataset.a](el.dataset.v);
+  fn(el.dataset.v);
   if (el.closest('#pop')) { renderBar(); return; }                // keep the volume popover open
   render();
 });
@@ -828,7 +833,17 @@ window.HMI = {
   data: { tracks: TRACKS },
   prefs: () => ({ theme: themeNow(), accent: PREF.accent }),
   lock: LOCK,
-  reset() { S = fresh(); lastScreen = null; lastLeg = -1; $('#pop').hidden = true; render(); }
+  reset() { S = fresh(); lastScreen = null; lastLeg = -1; $('#pop').hidden = true; render(); },
+  render: () => render(),
+  renderBar: () => renderBar(),
+  toast: (icon, text) => toast(ms(icon), text),
+  locked: () => LOCK.trial,
+  /* for add-on layers (SK knob): extra Settings rows, extra actions, code to run after each render */
+  extend({ settings, actions, afterRender } = {}) {
+    if (settings) EXT.settings.push(settings);
+    if (actions) Object.assign(EXT.actions, actions);
+    if (afterRender) EXT.afterRender.push(afterRender);
+  }
 };
 
 window.addEventListener('resize', () => { if (S.screen === 'nav') render(); else document.querySelectorAll('.wheel').forEach(w => wheelTo(w, w.dataset.wheel === 'd' ? S.clim.dT : S.clim.pT)); });

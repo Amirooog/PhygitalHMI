@@ -8,7 +8,7 @@ window.PHMI_LOG = (() => {
   let mem = read();
 
   const COLS = ['build', 'app', 'participant', 'condition', 'task', 'level', 'result', 'duration_s', 'first_touch_s',
-    'touches', 'misses', 'screens', 'path', 'theme', 'accent', 'occlusion', 'tsot_s', 'open_intervals', 'touches_occluded',
+    'touches', 'misses', 'knob_actions', 'first_knob_s', 'screens', 'path', 'theme', 'accent', 'occlusion', 'tsot_s', 'open_intervals', 'touches_occluded',
     'started_at', 'trial_id'];
   const q = v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
   const s2 = ms => ms == null ? '' : (ms / 1000).toFixed(2);
@@ -20,7 +20,7 @@ window.PHMI_LOG = (() => {
     csv() {
       const rows = [...mem].reverse().map(r => [
         r.build, r.app, r.participant, r.condition, r.task, r.level, r.result, s2(r.durationMs), s2(r.firstTouchMs),
-        r.touches, r.misses, (r.screens || []).join(' > '), (r.path || []).map(p => p.a + (p.o ? '*' : '')).join(' > '),
+        r.touches, r.misses, r.knob || 0, s2(r.firstKnobMs), (r.screens || []).join(' > '), (r.path || []).map(p => p.a + (p.o ? '*' : '')).join(' > '),
         r.theme, r.accent, r.occlusion, s2(r.tsotMs), r.openIntervals ?? '', r.touchesOccluded ?? '', r.startedAt, r.id
       ].map(q).join(','));
       return [COLS.join(','), ...rows].join('\n');

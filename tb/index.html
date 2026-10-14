@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@300;400;500;600;700&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block">
 <link rel="stylesheet" href="../shared/tokens.css">
-<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="../shared/hmi.css">
 <link rel="stylesheet" href="../shared/researcher.css">
 </head>
 <body>
@@ -30,7 +30,8 @@
   <div id="pop" hidden></div>
   <div id="toast" role="status" aria-live="polite"></div>
 </div>
-<script src="app.js"></script>
+<script>window.HMI_CONFIG = { id: 'TB-3.0.0-dev.5', line: 'TB', name: 'Touch Baseline' };</script>
+<script src="../shared/hmi.js"></script>
 <script src="../shared/tasks.js"></script>
 <script src="../shared/logger.js"></script>
 <script src="../shared/researcher.js"></script>

@@ -14,6 +14,16 @@ Rules
 - Freeze a build before data collection starts: copy it to `releases/<id>-field/`, tag it, and change nothing until collection ends.
 - Each app folder ships its `index.html` and `sw.js` together; the id in both must match.
 
+## SK-1.0.0 — in progress
+- dev.1: the same app as TB (shared/hmi.js) plus the knob layer (sk/knob.js, knob.css). A Bluetooth mouse inside the knob, read with the rules from the mouse probe: slide = cursor position across the screen in 4 equal zones (screen edges = end stops, small hysteresis), turn = wheel bursts with 1 step per ~185 px notch, press = middle button. Sideways movement is ignored for 350 ms after a turn.
+- Positions: Temperature (press = Auto), Fan (press = A/C), Volume (press = mute), and a fourth position set while parked: seat heat (default), seat vent or passenger temperature.
+- Digital layer: edge colour under the selected position, fading guide with all four positions and values, value pop-up above the knob.
+- The knob's mouse cannot click the screen and its cursor is hidden ("Knob only", Settings). Knob actions are logged per trial (knob_actions, first_knob_s, k: entries in the path); mouse input is not counted as touches in SK.
+- Tested headless with replayed iPad wheel events: T1, T2, T5 succeed by knob only.
+
+## Shared code
+- TB-3.0.0-dev.5: the app moved to shared/hmi.js and shared/hmi.css so TB and SK run identical code; each app sets its build in HMI_CONFIG.
+
 ## Earlier versions
 
 TB-1.0.0 to TB-2.1.0 (20 Sep 2026) were built in the `cabin-hmi` repo. No participant data was collected on them.
