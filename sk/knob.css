@@ -91,3 +91,15 @@ html.knob-nocursor, html.knob-nocursor * { cursor: none !important; }
 @keyframes kt-press { 0%, 100% { transform: scale(1); } 40% { transform: scale(.86); } }
 @keyframes kt-hold { 0% { stroke-dashoffset: 100; } 70%, 100% { stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: reduce) { #kTut * { animation: none !important; } }
+
+/* notch calibration */
+#kCal { position: fixed; inset: 0; z-index: 320; display: flex; align-items: center; justify-content: center; background: rgba(5, 6, 7, .8); }
+#kCal[hidden] { display: none; }
+#kCal .kc-box { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 28px 34px; border-radius: 26px; background: #15171B; color: #F2F1EE; text-align: center; }
+#kCal b { font-size: 24px; font-weight: 500; }
+#kCal span { font-size: 16px; color: rgba(242, 241, 238, .65); }
+#kCal .kc-dots { display: flex; gap: 10px; }
+#kCal .kc-dots i { width: 14px; height: 14px; border-radius: 7px; background: rgba(242, 241, 238, .2); }
+#kCal .kc-dots i.ok { background: var(--acc); }
+#kCal button { margin-top: 6px; min-height: 48px; padding: 0 24px; border-radius: 24px; border: 1px solid rgba(242, 241, 238, .25); background: transparent; color: inherit; font: inherit; }
+.rowr { display: flex; align-items: center; gap: 10px; }

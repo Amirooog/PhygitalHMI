@@ -247,14 +247,46 @@ document.addEventListener('pointermove', e => {
 
 /* ---------- turn / hold + turn: wheel bursts → steps ---------- */
 let acc = 0, emitted = 0, lastWheelT = 0, turnedWhileHeld = false;
+/* notch calibration (Settings → Knob · notch size → Calibrate): turn the wheel 5 single notches, slowly.
+   Each burst of wheel events (gaps under 150 ms) is one notch; the notch size is their mean distance.
+   Mice differ a lot: the first probe mouse gave ~185 px per notch, a plain mouse can give 3 px. */
+const CAL = (() => {
+  const el = document.createElement('div'); el.id = 'kCal'; el.hidden = true; document.body.appendChild(el);
+  let on = false, sums = [], cur = 0, endT;
+  const draw = () => { el.innerHTML = `<div class="kc-box"><b>Calibrating the knob</b><span>Turn the wheel one notch at a time, slowly: ${sums.length + (cur ? 1 : 0)} / 5</span><div class="kc-dots">${[0, 1, 2, 3, 4].map(i => `<i class="${i < sums.length ? 'ok' : ''}"></i>`).join('')}</div><button type="button">Cancel</button></div>`; el.querySelector('button').onclick = stop; };
+  const stop = () => { on = false; el.hidden = true; clearTimeout(endT); };
+  const close = () => {
+    if (cur) { sums.push(cur); cur = 0; }
+    draw();
+    if (sums.length >= 5) {
+      const sorted = sums.slice().sort((a, b) => a - b), med = sorted[2];
+      K.notch = Math.max(1, Math.round(med)); saveK(); stop(); H.render();
+      H.toast('tune', 'Notch size set to ' + K.notch + ' (measured ' + sums.map(Math.round).join(', ') + ')');
+    }
+  };
+  return {
+    get on() { return on; },
+    start() { on = true; sums = []; cur = 0; el.hidden = false; draw(); },
+    feed(e, fresh) {
+      if (fresh && cur) close();
+      if (!on) return;
+      cur += Math.abs(e.deltaY) * (e.deltaMode === 1 ? 33 : 1);
+      clearTimeout(endT); endT = setTimeout(close, BURST_GAP + 20); draw();
+    }
+  };
+})();
 document.addEventListener('wheel', e => {
   e.preventDefault();
   const now = performance.now();
-  if (now - lastWheelT > BURST_GAP) { acc = 0; emitted = 0; }
+  const fresh = now - lastWheelT > BURST_GAP;
+  if (fresh) { acc = 0; emitted = 0; }
   lastWheelT = now; lastTurn = now;
+  if (CAL.on) { CAL.feed(e, fresh); return; }                      // calibrating: measure, don't act
   const unit = e.deltaMode === 1 ? K.notch / 3 : 1;               // line-mode wheels: ~3 lines per notch
   acc += -e.deltaY * unit * (K.invert ? -1 : 1);                   // wheel away from you = up = more
-  const total = Math.sign(acc) * Math.floor(Math.abs(acc) / K.notch + 0.55);
+  if (!acc) return;
+  // steps so far in this burst; a burst always counts as at least one step, so a single notch is never lost
+  const total = Math.sign(acc) * Math.max(1, Math.floor(Math.abs(acc) / K.notch + 0.55));
   const k = total - emitted;
   if (!k) return;
   emitted = total;
@@ -305,7 +337,7 @@ document.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefaul
 let mouseDown = false;
 document.addEventListener('pointerdown', e => { mouseDown = e.pointerType === 'mouse'; }, true);
 document.addEventListener('click', e => {
-  if (K.blockClicks && mouseDown && !e.target.closest('#rp, #rovl, #kTut')) { e.stopPropagation(); e.preventDefault(); }
+  if (K.blockClicks && mouseDown && !e.target.closest('#rp, #rovl, #kTut, #kCal')) { e.stopPropagation(); e.preventDefault(); }
 }, true);
 
 /* a fresh trial starts with the screen on and nothing pending */
@@ -375,13 +407,14 @@ H.extend({
   settings: () => `
     <div class="srow"><div><div class="lbl">Knob · tutorial</div><div class="sub">Show a short knob lesson after the welcome screen</div></div><div class="seg"><button class="${K.tutorial ? '' : 'on'}" data-a="ktut" data-v="0" aria-pressed="${!K.tutorial}">Off</button><button class="${K.tutorial ? 'on' : ''}" data-a="ktut" data-v="1" aria-pressed="${!!K.tutorial}">On</button><button data-a="ktutnow" data-v="">Show now</button></div></div>
     <div class="srow"><div><div class="lbl">Knob · turn direction</div><div class="sub">Which way of turning raises the value</div></div>${seg('kinv', [['0', 'Normal'], ['1', 'Reversed']], K.invert ? '1' : '0')}</div>
-    <div class="srow"><div><div class="lbl">Knob · notch size</div><div class="sub">Wheel distance for one step (measured: 185)</div></div>${stepper('knotch', K.notch)}</div>
+    <div class="srow"><div><div class="lbl">Knob · notch size</div><div class="sub">Wheel distance for one step. Mice differ: calibrate once per mouse</div></div><div class="rowr">${stepper('knotch', K.notch)}<div class="seg"><button data-a="kcal" data-v="">Calibrate</button></div></div></div>
     <div class="srow"><div><div class="lbl">Knob · hold time</div><div class="sub">How long to hold the knob down for a long press</div></div>${stepper('klong', K.longMs, ' ms')}</div>
     <div class="srow"><div><div class="lbl">Knob · double-press window</div><div class="sub">Time allowed between two presses (climate positions)</div></div>${stepper('kdbl', K.dblMs, ' ms')}</div>
     <div class="srow"><div><div class="lbl">Knob · mouse</div><div class="sub">Hide the cursor and ignore mouse clicks, so only the knob's slide, turn and press count</div></div>${seg('kmouse', [['1', 'Knob only'], ['0', 'Normal mouse']], K.blockClicks ? '1' : '0')}</div>`,
   actions: {
     kinv(v) { if (guard()) return; K.invert = v === '1'; saveK(); },
-    knotch(v) { if (guard()) return; K.notch = clamp(K.notch + (v === '+' ? 5 : -5), 60, 400); saveK(); },
+    knotch(v) { if (guard()) return; const d = K.notch < 20 ? 1 : 5; K.notch = clamp(K.notch + (v === '+' ? d : -d), 1, 400); saveK(); },
+    kcal() { if (guard()) return; CAL.start(); },
     klong(v) { if (guard()) return; K.longMs = clamp(K.longMs + (v === '+' ? 50 : -50), 400, 1200); saveK(); },
     kdbl(v) { if (guard()) return; K.dblMs = clamp(K.dblMs + (v === '+' ? 25 : -25), 200, 500); saveK(); },
     ktut(v) { if (guard()) return; K.tutorial = v === '1'; saveK(); },
