@@ -14,6 +14,9 @@ Rules
 - Freeze a build before data collection starts: `tools/freeze.sh <app>` copies it with shared/ to `releases/<id>/`; change nothing in a frozen build until collection ends (fixes get a new version).
 - Each app folder ships its `index.html` and `sw.js` together; the id in both must match.
 
+## SK-2.1.1 (19 Oct 2026, frozen)
+- The dial no longer follows the cursor inside a zone. Cursor jitter while turning moved the dial left and right; now the dial stays fixed at its slot and only travels (with the stretch and spring) when the knob crosses into another zone. Slightly wider hysteresis at the zone borders.
+
 ## 19 Oct 2026, later: SK-2.1.0, TB-3.1.1, SK-1.0.1 (frozen in releases/)
 - **SK-2.1.0:** new digital layer, the dial of thesis Figure 5-4 (Amir's wireframes). Task paths unchanged.
   - Shape follows the knob: quarter circle in the bottom corner at each rail end (marker on the 45° line), half circle on the bottom edge in the middle and at assigned optional slots (marker at top centre); empty slots have no dial.

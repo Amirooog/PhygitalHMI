@@ -298,19 +298,17 @@ document.addEventListener('pointermove', e => {
   if (held || performance.now() - lastTurn < LOCK_MS) return;
   const n = active().length, W = window.innerWidth, f = clamp(e.clientX / Math.max(1, W - 1), 0, 1);
   let z = Math.min(n - 1, Math.floor(f * n));
-  if (zone !== null && z !== zone && Math.abs(f - (zone + 0.5) / n) < 0.5 / n + 0.02) z = zone;
-  if (TUT.on) { if (z !== zone) { zone = z; lightEdge(); TUT.slid(zone); } return; }
-  if (zone === null) zone = z;
-  // live follow: the dial travels with the knob as a half circle, then settles into the slot's shape
-  const startHidden = !visible;
-  travelling = true;
-  SP.cx.t = clamp(e.clientX, 0, W); SP.a0.t = 0; SP.a1.t = 180;
-  if (z !== zone) { zone = z; lightEdge(); trace('slide:' + curFn().key); }
-  if (startHidden || !content || content.fn !== curFn()) showDial('arrive');
-  if (startHidden) { SP.cx.x = SP.cx.t; snap(); }
-  clearTimeout(hideT);
-  clearTimeout(settleT);
-  settleT = setTimeout(() => { travelling = false; setTargets(slotShape(zone)); showHints(); kick(); clearTimeout(hideT); hideT = setTimeout(hideDial, 2600); }, 140);
+  if (zone !== null && z !== zone && Math.abs(f - (zone + 0.5) / n) < 0.5 / n + 0.03) z = zone;   // a little hysteresis at the borders
+  if (z === zone) return;                                           // inside a zone the dial stays put: no jitter while turning
+  zone = z;
+  lightEdge();
+  if (TUT.on) { TUT.slid(zone); return; }
+  trace('slide:' + curFn().key);
+  // the dial travels to the new slot: it stretches with its speed and settles into the slot's shape with a spring
+  showDial('arrive');
+  setTargets(slotShape(zone));
+  showHints();
+  clearTimeout(hideT); hideT = setTimeout(hideDial, 2600);
   kick();
 }, { passive: true });
 
