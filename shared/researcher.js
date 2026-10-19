@@ -18,6 +18,28 @@ const SES = Object.assign({ participant: 'P01', condition: H.app, occ: { on: fal
   (() => { try { return JSON.parse(localStorage.getItem(SKEY) || '{}'); } catch (e) { return {}; } })());
 const saveSes = () => { try { localStorage.setItem(SKEY, JSON.stringify(SES)); } catch (e) { /* in memory only */ } };
 
+/* ---------- participants (shared by TB and SK on this iPad) ----------
+   Names and background stay on this iPad and in their own CSV; the trial log only carries the ID (P01…),
+   so trial data can be shared or analysed without names. */
+const PKEY = 'phmi.participants';
+const PF = [   // field, label, kind, options
+  ['name', 'Name', 'text'], ['age', 'Age', 'num'],
+  ['gender', 'Gender', 'seg', ['Female', 'Male', 'Other / prefer not']],
+  ['years', 'Years driving', 'num'],
+  ['drives', 'Drives', 'seg', ['Daily', 'Weekly', 'Rarely']],
+  ['touchcar', 'Touchscreen car', 'seg', ['None', 'Sometimes', 'Regularly']],
+  ['hand', 'Handedness', 'seg', ['Right', 'Left']],
+  ['glasses', 'Glasses / lenses', 'seg', ['No', 'Yes']],
+  ['order', 'Order', 'seg', ['TB first', 'SK first']],
+  ['consent', 'Consent signed', 'seg', ['No', 'Yes']],
+  ['notes', 'Notes', 'area']
+];
+const PPL = (() => { try { return JSON.parse(localStorage.getItem(PKEY) || '[]'); } catch (e) { return []; } })();
+const savePpl = () => { try { localStorage.setItem(PKEY, JSON.stringify(PPL)); return true; } catch (e) { return false; } };
+const pById = id => PPL.find(p => p.id === id);
+const nextId = () => { let n = PPL.length + 1, id; do { id = 'P' + String(n++).padStart(2, '0'); } while (pById(id)); return id; };
+let editing = null;   // participant being edited (a copy), or null
+
 let trial = null, note = '';
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -36,7 +58,7 @@ H.root.addEventListener('pointerdown', e => {
 }, true);
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => H.root.addEventListener(ev, () => clearTimeout(lp), true));
 document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
   if (e.shiftKey && (e.key === 'R' || e.key === 'r')) rp.hidden ? openPanel() : closePanel();
 });
 function openPanel() { renderPanel(); rp.hidden = false; }
@@ -114,7 +136,7 @@ function finish(result) {
   const o = trial.occ;
   const rec = {
     id: 'T' + Date.now().toString(36), build: H.build, app: H.app,
-    participant: SES.participant || '—', condition: SES.condition || '',
+    participant: SES.participant || '—', condition: SES.condition || '', order: (pById(SES.participant) || {}).order || '',
     task: trial.task.id, level: trial.task.lv, result,
     durationMs: Math.round(end - trial.start), firstTouchMs: trial.first,
     touches: trial.touches, misses: trial.misses, knob: trial.knob, firstKnobMs: trial.firstKnob,
@@ -137,9 +159,64 @@ setInterval(() => {
   else if (performance.now() - trial.start > TIMEOUT) finish('timeout');
 }, 150);
 
+/* ---------- participant panel parts ---------- */
+const trialsOf = id => { const n = { TB: 0, SK: 0 }; LOG.all().forEach(r => { if (r.participant === id && n[r.app] != null) n[r.app]++; }); return n; };
+function msgP(t) { const m = rp.querySelector('#pMsg'); if (m) m.textContent = t || ''; }
+function readForm() {
+  if (!editing) return;
+  rp.querySelectorAll('[data-pf]').forEach(el => { editing[el.dataset.pf] = el.value.trim(); });
+}
+function field([f, label, kind, opts]) {
+  const v = editing[f] == null ? '' : editing[f];
+  if (kind === 'seg') return `<div class="pfl"><span>${label}</span><div class="rfr">${opts.map(o => `<button class="rb ${v === o ? 'a' : ''}" data-r="pset" data-f="${f}" data-v="${esc(o)}">${esc(o)}</button>`).join('')}</div></div>`;
+  if (kind === 'area') return `<label class="wide">${label}<textarea data-pf="${f}" rows="2">${esc(v)}</textarea></label>`;
+  return `<label class="${kind === 'num' ? 'sm' : ''}">${label}<input data-pf="${f}" value="${esc(v)}" ${kind === 'num' ? 'inputmode="numeric"' : 'autocomplete="off" autocapitalize="words"'}></label>`;
+}
+function participantBlock() {
+  if (editing) {
+    const isNew = !pById(editing.id);
+    return `<section class="pform"><h4>${isNew ? 'New participant' : 'Edit participant'} · ${esc(editing.id)}</h4>
+      <div class="rfr">${PF.slice(0, 2).map(field).join('')}${field(PF[3])}</div>
+      ${PF.filter(x => x[2] === 'seg').map(field).join('')}
+      ${field(PF[PF.length - 1])}
+      <div class="rfr"><button class="rb a" data-r="psave">Save and select</button><button class="rb" data-r="pcancel">Cancel</button>${isNew ? '' : `<button class="rb x" data-r="pdel" data-v="${esc(editing.id)}">Delete</button>`}</div>
+      <div id="pMsg" class="rnote"></div>
+      <p class="rnote">Order is suggested by alternating (counterbalancing); change it if needed. Names stay on this iPad and in the participants file only — the trial log uses the ID.</p></section>`;
+  }
+  const cur = pById(SES.participant);
+  const curLine = cur
+    ? `<div class="pcur"><b>${esc(cur.id)} · ${esc(cur.name)}</b><span>${[cur.age && cur.age + ' y', cur.gender, cur.order, cur.consent === 'Yes' ? 'consent ✓' : 'NO CONSENT YET'].filter(Boolean).map(esc).join(' · ')}</span>
+        <div class="rfr"><button class="rb" data-r="pedit" data-v="${esc(cur.id)}">Edit</button></div></div>`
+    : `<div class="pcur warn"><b>${SES.participant ? esc(SES.participant) + ' (not in the list)' : 'No participant selected'}</b><span>Add or select a participant before running tasks.</span></div>`;
+  const rows = PPL.map(p => { const n = trialsOf(p.id); return `<tr class="${p.id === SES.participant ? 'on' : ''}"><td>${esc(p.id)}</td><td>${esc(p.name)}</td><td>${esc(p.age || '')}</td><td>${esc(p.order || '')}</td><td>${p.consent === 'Yes' ? '✓' : '—'}</td><td>${n.TB} / ${n.SK}</td>
+      <td class="pact"><button class="rb ${p.id === SES.participant ? 'a' : ''}" data-r="psel" data-v="${esc(p.id)}">${p.id === SES.participant ? 'Selected' : 'Select'}</button><button class="rb" data-r="pedit" data-v="${esc(p.id)}">Edit</button></td></tr>`; }).join('');
+  return `<section><h4>Participant</h4>${curLine}
+    <div class="rtw"><table><thead><tr><th>ID</th><th>Name</th><th>Age</th><th>Order</th><th>Consent</th><th>Trials TB / SK</th><th></th></tr></thead><tbody>
+      ${rows || '<tr><td colspan="7" class="rnote">No participants yet.</td></tr>'}</tbody></table></div>
+    <div class="rfr"><button class="rb a" data-r="pnew">+ New participant</button><button class="rb" data-r="pexport" ${PPL.length ? '' : 'disabled'}>Export participants CSV</button></div>
+    <div id="pMsg" class="rnote"></div></section>`;
+}
+function pplCsv() {
+  const q = v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const cols = ['id', 'name', 'age', 'gender', 'years', 'drives', 'touchcar', 'hand', 'glasses', 'order', 'consent', 'notes', 'created'];
+  const head = ['id', 'name', 'age', 'gender', 'years_driving', 'drives', 'touchscreen_car', 'handedness', 'glasses', 'order', 'consent', 'notes', 'created_at', 'trials_TB', 'trials_SK'];
+  return [head.join(','), ...PPL.map(p => { const n = trialsOf(p.id); return [...cols.map(c => q(p[c])), n.TB, n.SK].join(','); })].join('\n');
+}
+async function shareCsv(name, text) {
+  try {
+    const f = new File([text], name, { type: 'text/csv' });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: name }); return 'Shared.'; }
+  } catch (e) { if (e && e.name === 'AbortError') return ''; }
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  return 'Downloaded ' + name;
+}
+
 /* ---------- panel ---------- */
 const s1 = ms => ms == null ? '—' : (ms / 1000).toFixed(1);
 function renderPanel() {
+  const keepY = (rp.querySelector('.rbody') || {}).scrollTop || 0;
   const R = LOG.all();
   const live = trial && trial.running
     ? `<div class="rlive"><b>Running ${trial.task.id} — ${esc(trial.task.text)}</b>
@@ -150,10 +227,10 @@ function renderPanel() {
     <header><b>Researcher · ${esc(H.app)} · ${esc(H.build)}</b><button class="rb" data-r="close">Close</button></header>
     <div class="rbody">
       ${live}
+      ${participantBlock(R)}
       <section><h4>Session</h4>
-        <div class="rfr"><label>Participant<input id="rP" value="${esc(SES.participant)}" autocomplete="off" autocapitalize="characters"></label>
-          <label>Condition<input id="rC" value="${esc(SES.condition)}" autocomplete="off"></label></div>
-        <div class="rfr"><button class="rb" data-r="reset">Reset app to start state</button></div>
+        <div class="rfr"><label>Condition<input id="rC" value="${esc(SES.condition)}" autocomplete="off"></label>
+          <button class="rb" data-r="reset">Reset app to start state</button></div>
         <p class="rnote">Theme and accent are recorded with every trial and locked while it runs. Set them in Settings before the session.</p>
       </section>
       <section><h4>Occlusion</h4>
@@ -174,8 +251,8 @@ function renderPanel() {
       </section>
       <p class="rnote">Open this panel: press and hold the clock for 1 s, or Shift+R on a keyboard. A trial ends by itself when the goal is reached, or after ${TIMEOUT / 1000} s.</p>
     </div></div>`;
+  rp.querySelector('.rbody').scrollTop = keepY;
   const num = (v, d) => { v = parseInt(v, 10); return v >= 200 && v <= 10000 ? v : d; };
-  rp.querySelector('#rP').onchange = e => { SES.participant = e.target.value.trim(); saveSes(); };
   rp.querySelector('#rC').onchange = e => { SES.condition = e.target.value.trim(); saveSes(); };
   rp.querySelector('#rO').onchange = e => { SES.occ.open = num(e.target.value, 1500); saveSes(); };
   rp.querySelector('#rX').onchange = e => { SES.occ.closed = num(e.target.value, 1500); saveSes(); };
@@ -184,10 +261,31 @@ rp.addEventListener('click', async e => {
   if (e.target === rp) { closePanel(); return; }
   const b = e.target.closest('[data-r]'); if (!b || b.disabled) return;
   const r = b.dataset.r, v = b.dataset.v, msg = t => { const m = rp.querySelector('#rMsg'); if (m) m.textContent = t; };
-  const p = rp.querySelector('#rP'), c = rp.querySelector('#rC');
-  if (p) { SES.participant = p.value.trim(); SES.condition = c.value.trim(); saveSes(); }
+  const c = rp.querySelector('#rC');
+  if (c) { SES.condition = c.value.trim(); saveSes(); }
+  if (editing) readForm();
   if (r === 'close') closePanel();
-  if (r === 'run') startTask(v);
+  if (r === 'pnew') { editing = { id: nextId(), order: PPL.length % 2 ? 'SK first' : 'TB first', consent: 'No', created: new Date().toISOString() }; renderPanel(); }
+  if (r === 'pedit') { const p = pById(v); if (p) { editing = clone(p); renderPanel(); } }
+  if (r === 'pset') { readForm(); editing[b.dataset.f] = v; renderPanel(); }
+  if (r === 'pcancel') { editing = null; renderPanel(); }
+  if (r === 'psave') {
+    if (!(editing.name || '').trim()) { msgP('Enter a name first.'); return; }
+    const i = PPL.findIndex(p => p.id === editing.id);
+    if (i >= 0) PPL[i] = editing; else PPL.push(editing);
+    SES.participant = editing.id; saveSes();
+    msgP(savePpl() ? '' : 'Could not save on this iPad — storage is full or blocked.');
+    editing = null; renderPanel();
+  }
+  if (r === 'pdel') {
+    const p = pById(v);
+    if (p && confirm(`Delete ${p.id} (${p.name})? Their trials stay in the log under ${p.id}.`)) {
+      PPL.splice(PPL.indexOf(p), 1); savePpl(); if (SES.participant === p.id) { SES.participant = ''; saveSes(); } editing = null; renderPanel();
+    }
+  }
+  if (r === 'psel') { SES.participant = v; saveSes(); renderPanel(); }
+  if (r === 'pexport') msgP(await shareCsv('phygitalhmi-participants-' + new Date().toISOString().slice(0, 10) + '.csv', pplCsv()));
+  if (r === 'run') { if (!pById(SES.participant) && !confirm('No participant selected. Run anyway?')) return; startTask(v); }
   if (r === 'abort') finish('abandoned');
   if (r === 'reset') { H.reset(); closePanel(); }
   if (r === 'occ') { SES.occ.on = v === '1'; saveSes(); renderPanel(); }

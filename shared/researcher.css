@@ -44,3 +44,17 @@
 /* occlusion shutter: blocks the view, never the touch */
 #rocc { position: fixed; inset: 0; z-index: 140; background: #000; opacity: 0; pointer-events: none; }
 #rocc.on { opacity: 1; }
+
+/* participants */
+#rp textarea { font: inherit; font-size: 16px; background: #221E15; border: 1px solid #3A3222; color: #EDE6D6; border-radius: 10px; padding: 10px 12px; resize: vertical; }
+#rp label.wide { flex-basis: 100%; }
+#rp .pfl { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #A89877; }
+#rp .pfl .rb { min-height: 40px; }
+#rp .pform { background: #1D1A12; border: 1px solid #3A3222; border-radius: 12px; padding: 12px; }
+#rp .pcur { display: flex; flex-direction: column; gap: 4px; background: #1D1A12; border-left: 3px solid #5BD08A; border-radius: 10px; padding: 10px 12px; }
+#rp .pcur.warn { border-left-color: #F0605A; }
+#rp .pcur b { font-size: 16px; color: #EDE6D6; }
+#rp .pcur span { font-size: 13px; color: #A89877; }
+#rp tr.on td { background: #2A1F0B; }
+#rp td.pact { display: flex; gap: 6px; }
+#rp td.pact .rb { min-height: 36px; padding: 0 10px; font-size: 13px; }
