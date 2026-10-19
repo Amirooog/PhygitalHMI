@@ -52,11 +52,11 @@ function climate(side) {
   const d = side === 'L', on = d ? 'dOn' : 'pOn', t = d ? 'dT' : 'pT', fan = d ? 'fan' : 'fanP', seat = 'seat' + side, vent = 'vent' + side;
   const who = d ? 'Driver' : 'Passenger';
   return {
-    key: d ? 'driver' : 'passenger', n: who + ' temp', ic: d ? 'thermostat' : 'airline_seat_recline_normal', col: d ? '#FF7A45' : '#5BD08A',
+    key: d ? 'driver' : 'passenger', n: who + ' temp', short: d ? 'Temp' : 'Pass. temp', ic: d ? 'thermostat' : 'airline_seat_recline_normal', col: d ? '#FF7A45' : '#5BD08A',
     hints: [['Turn', 'Temperature'], ['Press', 'Seat heater'], ['Hold + turn', 'Fan']],
     turn(s, k) { const c = s.clim; c[on] = true; c[t] = clamp(c[t] + 0.5 * k, 16, 28); if (d && c.sync) c.pT = c.dT; if (!d) c.sync = false; },
     hturn(s, k) { const c = s.clim; c[on] = true; c.auto = false; c[fan] = clamp((c[fan] ?? c.fan) + k, 1, 7); },
-    press(s) { const c = s.clim; if (c[seat]) c[seat] = 0; else { c[seat] = 3; c[vent] = 0; } return { icon: 'heat', on: !!c[seat], label: 'Seat heater ' + (c[seat] ? 'on' : 'off') }; },
+    press(s) { const c = s.clim; if (c[seat]) c[seat] = 0; else { c[seat] = 3; c[vent] = 0; } return { icon: 'local_fire_department', on: !!c[seat], short: c[seat] ? 'On' : 'Off', label: 'Seat heater ' + (c[seat] ? 'on' : 'off') }; },
     main: s => ({ id: 'temp', head: who + ' temperature', items: TEMPS, cur: Math.round((s.clim[t] - 16) * 2), sub: s.clim[on] ? 'Fan ' + (s.clim[fan] ?? s.clim.fan) : 'Off · turn to switch on' }),
     second: s => ({ id: 'fan', head: who + ' fan', ic: 'mode_fan', items: FAN, cur: (s.clim[fan] ?? s.clim.fan) - 1 })
   };
@@ -71,7 +71,7 @@ const FN = {
   driver: climate('L'),
   passenger: climate('R'),
   media: {
-    key: 'media', n: 'Media', ic: 'volume_up', col: '#A89BFF',
+    key: 'media', n: 'Media', short: 'Media', ic: 'volume_up', col: '#A89BFF',
     hints: [['Turn', 'Volume'], ['Press', 'Play / pause'], ['Hold + turn', 'Next / previous track']],
     turn(s, k) { const m = s.media; m.mute = false; m.vol = clamp(m.vol + k, 0, 30); },
     hturn(s, k) {
@@ -79,12 +79,12 @@ const FN = {
       if (m.src === 'fm') { m.freq = D.fms[i].f; m.fm = i; } else if (m.src === 'usb') { m.usb = i; m.upos = 0; } else { if (i !== m.track) m.pos = 0; m.track = i; }
       m.playing = true;
     },
-    press(s) { s.media.playing = !s.media.playing; return { icon: s.media.playing ? 'play_arrow' : 'pause', on: s.media.playing, label: s.media.playing ? 'Playing' : 'Paused' }; },
+    press(s) { s.media.playing = !s.media.playing; return { icon: s.media.playing ? 'play_arrow' : 'pause', on: s.media.playing, short: s.media.playing ? 'Play' : 'Pause', label: s.media.playing ? 'Playing' : 'Paused' }; },
     main: s => ({ id: 'vol', head: 'Volume', ic: s.media.mute ? 'volume_off' : 'volume_up', items: VOLS, cur: s.media.vol, sub: curTrack(s.media)[0] }),
     second: s => ({ id: 'track-' + s.media.src, head: s.media.src === 'fm' ? 'Station' : 'Track', ic: 'queue_music', items: trackList(s.media), cur: trackIdx(s.media), sub: curTrack(s.media)[1] })
   },
   vent: {
-    key: 'vent', n: 'Seat ventilation', ic: 'airline_seat_recline_extra', col: '#5AA2FF', opt: true,
+    key: 'vent', n: 'Seat ventilation', short: 'Seat', ic: 'airline_seat_recline_extra', col: '#5AA2FF', opt: true,
     hints: [['Turn', 'Level 0–3'], ['Press', 'Heating ↔ ventilation']],
     mode: 'vent',
     turn(s, k) { const c = s.clim, f = this.mode === 'vent' ? 'ventL' : 'seatL', o = f === 'ventL' ? 'seatL' : 'ventL'; c[f] = clamp(c[f] + k, 0, 3); if (c[f]) c[o] = 0; },
@@ -92,12 +92,12 @@ const FN = {
       const c = s.clim, lvl = Math.max(c.ventL, c.seatL);
       this.mode = this.mode === 'vent' ? 'heat' : 'vent';
       if (this.mode === 'vent') { c.ventL = lvl; c.seatL = 0; } else { c.seatL = lvl; c.ventL = 0; }
-      return { icon: this.mode === 'vent' ? 'mode_fan' : 'local_fire_department', on: true, label: this.mode === 'vent' ? 'Ventilation' : 'Heating' };
+      return { icon: this.mode === 'vent' ? 'mode_fan' : 'local_fire_department', on: true, short: this.mode === 'vent' ? 'Vent' : 'Heat', label: this.mode === 'vent' ? 'Ventilation' : 'Heating' };
     },
     main(s) { const v = this.mode === 'vent'; return { id: 'lvl-' + this.mode, head: 'Driver seat ' + (v ? 'ventilation' : 'heating'), items: LV, cur: v ? s.clim.ventL : s.clim.seatL }; }
   },
   nav: {
-    key: 'nav', n: 'Navigation', ic: 'near_me', col: '#4CC3E0', opt: true,
+    key: 'nav', n: 'Navigation', short: 'Nav', ic: 'near_me', col: '#4CC3E0', opt: true,
     hints: [['Turn', 'Favourites'], ['Press', 'Start route'], ['Hold + turn', 'Nearest chargers']],
     list: 'fav', i: -1,
     pick(s, list, k) {
@@ -112,7 +112,7 @@ const FN = {
       const n = s.nav;
       if (n.mode !== 'preview' || !n.sel) unavailable('Start route', 'Turn to choose a destination first');
       n.dest = n.sel; n.mode = 'route'; n.t0 = Date.now(); s.screen = 'nav'; this.i = -1;
-      return { icon: 'navigation', on: true, label: 'Route started' };
+      return { icon: 'navigation', on: true, short: 'Go', label: 'Route started' };
     },
     main(s) {
       const ids = this.list === 'ev' ? D.chargers : D.favorites.slice(0, 6), n = s.nav;
@@ -122,7 +122,7 @@ const FN = {
     second(s) { return { id: 'nav-ev', head: 'Nearest chargers', ic: 'ev_station', items: D.chargers.map(i => D.poi[i].n), cur: Math.max(0, this.list === 'ev' ? this.i : 0) }; }
   },
   drive: {
-    key: 'drive', n: 'Drive mode', ic: 'directions_car', col: '#FFC24B', opt: true,
+    key: 'drive', n: 'Drive mode', short: 'Drive', ic: 'directions_car', col: '#FFC24B', opt: true,
     hints: [['Turn', 'Drive mode'], ['Hold + turn', 'Stability control']],
     turn(s, k) {
       const c = s.car, i = ROT.indexOf(c.mode), j = clamp((i < 0 ? 1 : i) + k, 0, ROT.length - 1), m = D.dmodes[ROT[j]];
@@ -141,13 +141,18 @@ const OPTIONAL = ['vent', 'nav', 'drive'];
 const slots = () => ['driver', K.opt1, 'media', K.opt2, 'passenger'];
 const active = () => slots().filter(Boolean).map(k => FN[k]);
 
-/* ---------- digital layer ---------- */
+/* ---------- digital layer: the dial (thesis Figure 5-4, wireframes 19 Oct 2026) ----------
+   Shape follows the knob: quarter circle in the bottom corner at each rail end, half circle on the bottom edge
+   in the middle and at assigned optional slots; an empty slot has no dial.
+   Rings: inner = function icon (and on/off on press) · middle = main value · outer = second value, only during
+   hold + turn, while the middle ring shrinks and dims. The whole value ring, with its ticks and numbers, rotates
+   under a fixed marker (top centre on the half circle, the 45° line on the quarter circle).
+   Motion: the dial follows the knob live while sliding, stretches toward the direction of travel and settles into
+   the slot's shape with a short spring. Idle = edge strip only, dim. The dial fades about 2 s after the last action. */
 const edge = document.createElement('div'); edge.id = 'kEdge'; edge.setAttribute('aria-hidden', 'true');
-const arc = document.createElement('div'); arc.id = 'kArc'; arc.setAttribute('role', 'status'); arc.setAttribute('aria-live', 'polite');
-arc.innerHTML = '<div class="ka-items"></div><div class="ka-mid"><b class="ka-head"></b><small class="ka-sub"></small></div><i class="ka-knob"></i>';
+const dial = document.createElement('div'); dial.id = 'kDial'; dial.setAttribute('role', 'status'); dial.setAttribute('aria-live', 'polite');
 const hint = document.createElement('div'); hint.id = 'kHint'; hint.setAttribute('aria-hidden', 'true');
-document.body.append(edge, arc, hint);
-const AW = 460, AR = 160, STEP = 30;
+document.body.append(edge, dial, hint);
 
 let zone = null, lit = false, litT;
 function drawEdge() {
@@ -156,54 +161,116 @@ function drawEdge() {
   edge.innerHTML = A.map((p, i) => `<i style="${i === zone ? (lit ? `background:${p.col};box-shadow:0 0 18px ${p.col}` : `background:${p.col};opacity:.38`) : ''}"></i>`).join('');
 }
 function lightEdge() { lit = true; drawEdge(); clearTimeout(litT); litT = setTimeout(() => { lit = false; drawEdge(); }, 3000); }
-let arcId = null, arcT, hintT;
-function placeArc() {
-  const n = active().length, x = (zone + 0.5) / n * window.innerWidth;
-  arc.style.left = clamp(x, AW / 2 + 8, window.innerWidth - AW / 2 - 8) + 'px';
-  hint.style.left = clamp(x, 268, window.innerWidth - 268) + 'px';
+
+/* springs: x moves toward t; a little overshoot, then settles (motion only, no transparency) */
+const spring = x => ({ x, v: 0, t: x });
+const SP = { cx: spring(0), a0: spring(0), a1: spring(180), rot: spring(0), rot2: spring(0), l2: spring(0), press: spring(0) };
+let raf = 0, lastT = 0, visible = false, hideT, content = null;   // content: { fn, main, second, flash, na }
+function animate(now) {
+  const dt = Math.min(0.032, (now - (lastT || now)) / 1000 || 0.016); lastT = now;
+  let moving = false;
+  for (const k in SP) {
+    const s = SP[k], stiff = k === 'cx' ? 210 : k === 'l2' || k === 'press' ? 260 : 190, damp = k === 'cx' ? 19 : 22;
+    const a = stiff * (s.t - s.x) - damp * s.v;
+    s.v += a * dt; s.x += s.v * dt;
+    if (Math.abs(s.t - s.x) > 0.01 || Math.abs(s.v) > 0.01) moving = true; else { s.x = s.t; s.v = 0; }
+  }
+  drawDial();
+  raf = moving ? requestAnimationFrame(animate) : 0;
+  if (!moving) lastT = 0;
 }
-function showHints() {
-  const p = active()[zone];
-  hint.style.setProperty('--gc', p.col);
-  hint.innerHTML = `<span class="kh-n">${msI(p.ic)}${esc(p.n)}</span>` + p.hints.map(([g, a]) => `<span><b>${g}</b> ${a}</span>`).join('');
-  placeArc(); hint.classList.add('show');
+const kick = () => { if (!raf) raf = requestAnimationFrame(animate); };
+const snap = () => { for (const k in SP) { SP[k].x = SP[k].t; SP[k].v = 0; } };
+
+const R = { inner: 72, m0: 80, m1: 134, o0: 140, o1: 184 };
+const pt = (cx, cy, r, a) => [cx + r * Math.cos(a * Math.PI / 180), cy - r * Math.sin(a * Math.PI / 180)];
+function sector(cx, cy, r0, r1, a0, a1) {
+  const big = a1 - a0 > 180 ? 1 : 0, [x0, y0] = pt(cx, cy, r1, a0), [x1, y1] = pt(cx, cy, r1, a1);
+  if (r0 <= 0) return `M${cx},${cy} L${x0},${y0} A${r1},${r1} 0 ${big} 0 ${x1},${y1} Z`;
+  const [x2, y2] = pt(cx, cy, r0, a1), [x3, y3] = pt(cx, cy, r0, a0);
+  return `M${x0},${y0} A${r1},${r1} 0 ${big} 0 ${x1},${y1} L${x2},${y2} A${r0},${r0} 0 ${big} 1 ${x3},${y3} Z`;
+}
+// spacing from the widest label, so numbers never overlap (prev / current / next stay readable)
+const stepFor = (items, rm, fs) => { const L = Math.min(11, Math.max(...items.map(t => String(t).length))); return Math.max(16, (L * fs * 0.62 + 14) / rm * 180 / Math.PI); };
+function ring(list, rotF, r0, r1, a0, a1, idx, col, op, small) {
+  if (!list) return '';
+  const rm = (r0 + r1) / 2, fs = small ? 12 : Math.min(17, (r1 - r0) * 0.34), step = stepFor(list.items, rm, fs * 1.2);
+  let s = `<path d="${sector(CX, CY, r0, r1, a0, a1)}" class="kd-band" opacity="${op}"/>`;
+  let marks = '';
+  list.items.forEach((t, i) => {
+    const ang = idx - (i - rotF) * step;
+    if (ang < a0 - step || ang > a1 + step) return;
+    const [x, y] = pt(CX, CY, rm, ang), on = Math.abs(i - rotF) < 0.5;
+    const [tx0, ty0] = pt(CX, CY, r1 - 4, ang + step / 2), [tx1, ty1] = pt(CX, CY, r1 - 11, ang + step / 2);
+    marks += `<line x1="${tx0}" y1="${ty0}" x2="${tx1}" y2="${ty1}" class="kd-tick"/>`;
+    const lbl = String(t).length > 11 ? String(t).slice(0, 10) + '…' : String(t);
+    marks += `<text x="${x}" y="${y}" transform="rotate(${90 - ang} ${x} ${y})" class="kd-num${on ? ' on' : ''}" font-size="${on ? fs * 1.25 : fs}"${on ? ` style="fill:${col}"` : ''}>${esc(lbl)}</text>`;
+  });
+  return s + `<g clip-path="url(#kdClip)" opacity="${op}">${marks}</g>`;
+}
+let CX = 0, CY = 0;
+function drawDial() {
+  if (!content) return;
+  const W = window.innerWidth, Hh = window.innerHeight, p = content.fn;
+  CX = SP.cx.x; CY = Hh;
+  const a0 = SP.a0.x, a1 = SP.a1.x, idx = (a0 + a1) / 2, l2 = clamp(SP.l2.x, 0, 1.2), pr = clamp(SP.press.x, 0, 1.2);
+  const stretch = clamp(Math.abs(SP.cx.v) / 3200, 0, 0.32), dir = Math.sign(SP.cx.v) || 1;
+  // layer 2 open: middle ring shrinks and dims, outer ring grows in
+  const m0 = R.m0, m1 = R.m1 - l2 * 34, o0 = R.o0 - l2 * 34 + (1 - l2) * 24, o1 = R.o1 - l2 * 10;
+  const col = content.na ? '#8A9098' : p.col;
+  const clip = sector(CX, CY, 0, R.o1 + 30, a0, a1);
+  const [ix, iy] = pt(CX, CY, (l2 > 0.5 ? o1 : m1) + 12, idx);
+  const tri = `<path d="M0,-9 L8,7 L-8,7 Z" class="kd-idx" style="fill:${col}" transform="translate(${ix} ${iy}) rotate(${270 - idx})"/>`;
+  const [cxI, cyI] = pt(CX, CY, R.inner * 0.55, idx);
+  const fill = pr > 0.02 ? (content.flash && content.flash.on ? col : '#5a5f68') : '#1B1F24';
+  const label = pr > 0.5 && content.flash ? content.flash.short : p.short;
+  dial.innerHTML = `<svg width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}" aria-hidden="true">
+    <defs><clipPath id="kdClip"><path d="${clip}"/></clipPath></defs>
+    <g transform="translate(${CX} ${CY}) scale(${1 + stretch} ${1 - stretch * 0.35}) translate(${-CX - dir * stretch * 40} ${-CY})">
+      <path d="${sector(CX, CY, 0, R.o1 + 8, a0, a1)}" class="kd-bg"/>
+      ${ring(content.main, SP.rot.x, m0, m1, a0, a1, idx, col, l2 > 0.05 ? 1 - 0.55 * Math.min(1, l2) : 1, l2 > 0.5)}
+      ${l2 > 0.02 ? ring(content.second, SP.rot2.x, o0, o1, a0, a1, idx, col, Math.min(1, l2), false) : ''}
+      <path d="${sector(CX, CY, 0, R.inner * (1 + pr * 0.08), a0, a1)}" style="fill:${fill}" class="kd-inner"/>
+      <text x="${cxI}" y="${cyI - 7}" class="kd-ic">${content.na ? 'block' : pr > 0.5 && content.flash ? content.flash.icon : p.ic}</text>
+      <text x="${cxI}" y="${cyI + 15}" class="kd-lbl">${esc(label)}</text>
+      ${tri}
+    </g></svg>`;
+}
+const slotShape = z => {
+  const n = active().length, W = window.innerWidth;
+  if (z === 0) return { cx: 0, a0: 0, a1: 90 };
+  if (z === n - 1) return { cx: W, a0: 90, a1: 180 };
+  return { cx: (z + 0.5) / n * W, a0: 0, a1: 180 };
+};
+const curFn = () => { const A = active(); if (zone == null || zone >= A.length) zone = Math.max(0, Math.min(zone ?? 0, A.length - 1)); return A[zone]; };
+function setTargets(sh) { SP.cx.t = sh.cx; SP.a0.t = sh.a0; SP.a1.t = sh.a1; }
+function showDial(kind, extra) {
+  const p = curFn(), s = H.state();
+  const main = p.main(s), second = p.second ? p.second(s) : null;
+  const wasHidden = !visible || !content || content.fn !== p;
+  content = { fn: p, main, second, flash: kind === 'press' ? extra : null, na: kind === 'na' ? extra : null };
+  if (!travelling) setTargets(slotShape(zone));
+  SP.rot.t = main.cur; SP.rot2.t = second ? second.cur : 0;
+  SP.l2.t = kind === 'second' ? 1 : 0;
+  if (kind === 'press') { SP.press.t = 1; clearTimeout(showDial.pt); showDial.pt = setTimeout(() => { SP.press.t = 0; kick(); }, 1000); }
+  if (wasHidden) { SP.rot.x = SP.rot.t; SP.rot2.x = SP.rot2.t; if (!visible) { SP.cx.x = SP.cx.t; SP.a0.x = SP.a0.t; SP.a1.x = SP.a1.t; } }
+  dial.style.setProperty('--fc', p.col);
+  visible = true; dial.classList.add('show');
+  clearTimeout(hideT); hideT = setTimeout(hideDial, kind === 'na' ? 2200 : 2000);
+  if (kind === 'na') showReason(extra); else if (kind !== 'arrive') hint.classList.remove('show');
+  kick();
+}
+function hideDial() { if (travelling) return; visible = false; dial.classList.remove('show'); SP.l2.t = 0; kick(); }
+let hintT;
+function hintAt(html, col) {
+  const n = active().length, W = window.innerWidth, x = zone === 0 ? 150 : zone === n - 1 ? W - 150 : (zone + 0.5) / n * W;
+  hint.style.setProperty('--gc', col); hint.innerHTML = html;
+  hint.style.left = clamp(x, 268, W - 268) + 'px'; hint.classList.add('show');
   clearTimeout(hintT); hintT = setTimeout(() => hint.classList.remove('show'), 3000);
 }
-/* kind: 'main' | 'second' | 'press' | 'na' */
-function showArc(kind, extra) {
-  const p = active()[zone], s = H.state();
-  let sc;
-  if (kind === 'press') sc = { id: 'press', head: p.n, items: [extra.label], cur: 0, icon: extra.icon, on: extra.on };
-  else if (kind === 'na') sc = { id: 'na', head: p.n, items: [extra.item], cur: 0, sub: extra.reason };
-  else sc = (kind === 'second' && p.second ? p.second(s) : p.main(s));
-  const box = arc.querySelector('.ka-items');
-  arc.style.setProperty('--gc', kind === 'second' ? `color-mix(in srgb, ${p.col} 45%, #ffffff)` : kind === 'na' ? '#8A9098' : p.col);
-  arc.classList.toggle('second', kind === 'second');
-  arc.classList.toggle('na', kind === 'na');
-  arc.classList.toggle('press', kind === 'press');
-  placeArc();
-  const id = p.key + ':' + kind + ':' + sc.id + (kind === 'press' || kind === 'na' ? ':' + Date.now() : '');
-  if (id !== arcId) {
-    box.innerHTML = sc.items.map((t, i) => kind === 'press'
-      ? `<span class="ka-i ka-icon ${sc.on ? 'is-on' : 'is-off'}" data-i="${i}">${msI(sc.icon === 'heat' ? 'local_fire_department' : sc.icon)}<small>${esc(t)}</small></span>`
-      : `<span class="ka-i" data-i="${i}">${esc(t)}</span>`).join('');
-    box.classList.add('snap'); arcId = id;
-  }
-  const txt = sc.items.some(t => String(t).length > 6) && kind !== 'press', step = txt ? 40 : STEP;
-  box.classList.toggle('txt', txt);
-  box.querySelectorAll('.ka-i').forEach(el => {
-    const o = +el.dataset.i - sc.cur, a = o * step * Math.PI / 180, on = o === 0;
-    el.style.transform = `translate(-50%, -50%) translate(${Math.sin(a) * AR}px, ${-Math.cos(a) * AR}px) rotate(${o * step * 0.7}deg) scale(${on ? 1 : txt ? 0.72 : 0.62})`;
-    el.style.opacity = Math.abs(o) > 2 ? 0 : on ? 1 : Math.abs(o) === 1 ? (txt ? 0.45 : 0.55) : (txt ? 0.18 : 0.25);
-    el.classList.toggle('on', on);
-  });
-  void box.offsetWidth; box.classList.remove('snap');
-  arc.querySelector('.ka-head').innerHTML = msI(sc.ic || p.ic) + '<span>' + esc(sc.head) + '</span>' + (kind === 'second' ? '<em>Hold + turn</em>' : kind === 'na' ? '<em>Not available</em>' : '');
-  arc.querySelector('.ka-sub').textContent = sc.sub || '';
-  arc.classList.add('show'); hint.classList.remove('show');
-  clearTimeout(arcT); arcT = setTimeout(() => arc.classList.remove('show'), kind === 'press' ? 1000 : 2000);
-}
-window.addEventListener('resize', () => { if (zone !== null) placeArc(); });
+function showHints() { const p = curFn(); hintAt(`<span class="kh-n">${msI(p.ic)}${esc(p.n)}</span>` + p.hints.map(([g, a]) => `<span><b>${g}</b> ${a}</span>`).join(''), p.col); }
+function showReason(na) { hintAt(`<span class="kh-na"><b>${esc(na.item)}</b> ${esc(na.reason)}</span>`, '#F0605A'); }
+window.addEventListener('resize', () => { if (zone !== null) { setTargets(slotShape(zone)); snap(); drawDial(); } });
 
 /* ---------- run one gesture on the selected position ---------- */
 function fire(g, k) {
@@ -211,33 +278,40 @@ function fire(g, k) {
   if (zone === null || zone >= A.length) { zone = 0; drawEdge(); }
   if (TUT.on) { TUT.got(g); return; }
   const p = A[zone], st = H.state();
-  if (!p[g]) { showArc('na', { item: g === 'press' ? 'Press' : 'Hold + turn', reason: 'Not used on ' + p.n }); trace(g + ':' + p.key + ':none'); return; }
+  if (!p[g]) { showDial('na', { item: g === 'press' ? 'Press' : 'Hold + turn', reason: 'not used on ' + p.n }); trace(g + ':' + p.key + ':none'); return; }
   try {
     const r = p[g](st, k);
     H.render();
-    if (g === 'press') showArc('press', r); else showArc(g === 'hturn' ? 'second' : 'main');
+    showDial(g === 'press' ? 'press' : g === 'hturn' ? 'second' : 'main', r);
     trace(g + ':' + p.key + (k ? (k > 0 ? '+' : '') + k : ''));
   } catch (e) {
     if (!e.na) throw e;
-    H.render(); showArc('na', e.na); trace(g + ':' + p.key + ':unavailable');
+    H.render(); showDial('na', e.na); trace(g + ':' + p.key + ':unavailable');
   }
 }
 
-/* ---------- slide: cursor x → zone (one zone per filled slot), small hysteresis ---------- */
-let lastTurn = 0, held = false, downT = 0;
+/* ---------- slide: the dial follows the knob live; zone = filled slot under the cursor ---------- */
+let lastTurn = 0, held = false, downT = 0, travelling = false, settleT;
 document.addEventListener('pointermove', e => {
   if (e.pointerType !== 'mouse') return;
   if (held && !(e.buttons & 4) && performance.now() - downT > 800) held = false;   // missed button-up: unstick
   if (held || performance.now() - lastTurn < LOCK_MS) return;
-  const n = active().length, f = clamp(e.clientX / Math.max(1, window.innerWidth - 1), 0, 1);
+  const n = active().length, W = window.innerWidth, f = clamp(e.clientX / Math.max(1, W - 1), 0, 1);
   let z = Math.min(n - 1, Math.floor(f * n));
   if (zone !== null && z !== zone && Math.abs(f - (zone + 0.5) / n) < 0.5 / n + 0.02) z = zone;
-  if (z === zone) return;
-  zone = z;
-  lightEdge();
-  if (TUT.on) { TUT.slid(zone); return; }
-  showHints(); arc.classList.remove('show');
-  trace('slide:' + active()[zone].key);
+  if (TUT.on) { if (z !== zone) { zone = z; lightEdge(); TUT.slid(zone); } return; }
+  if (zone === null) zone = z;
+  // live follow: the dial travels with the knob as a half circle, then settles into the slot's shape
+  const startHidden = !visible;
+  travelling = true;
+  SP.cx.t = clamp(e.clientX, 0, W); SP.a0.t = 0; SP.a1.t = 180;
+  if (z !== zone) { zone = z; lightEdge(); trace('slide:' + curFn().key); }
+  if (startHidden || !content || content.fn !== curFn()) showDial('arrive');
+  if (startHidden) { SP.cx.x = SP.cx.t; snap(); }
+  clearTimeout(hideT);
+  clearTimeout(settleT);
+  settleT = setTimeout(() => { travelling = false; setTargets(slotShape(zone)); showHints(); kick(); clearTimeout(hideT); hideT = setTimeout(hideDial, 2600); }, 140);
+  kick();
 }, { passive: true });
 
 /* ---------- turn / hold and turn ---------- */
@@ -383,7 +457,7 @@ const CFG = (() => {
     if (c && c.dataset.c === 'save') {
       if (H.state().car.moving) { close(); H.toast('lock', 'Car is moving: mapping unchanged'); return; }
       K.opt1 = draft.opt1; K.opt2 = draft.opt2; saveK(); close();
-      zone = null; drawEdge(); H.render(); H.toast('tune', 'Knob slots saved');
+      zone = null; content = null; drawEdge(); H.render(); H.toast('tune', 'Knob slots saved');
       trace('config:' + (K.opt1 || '-') + ',' + (K.opt2 || '-'));
     }
   });

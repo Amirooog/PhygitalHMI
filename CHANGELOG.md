@@ -14,6 +14,15 @@ Rules
 - Freeze a build before data collection starts: `tools/freeze.sh <app>` copies it with shared/ to `releases/<id>/`; change nothing in a frozen build until collection ends (fixes get a new version).
 - Each app folder ships its `index.html` and `sw.js` together; the id in both must match.
 
+## 19 Oct 2026, later: SK-2.1.0, TB-3.1.1, SK-1.0.1 (frozen in releases/)
+- **SK-2.1.0:** new digital layer, the dial of thesis Figure 5-4 (Amir's wireframes). Task paths unchanged.
+  - Shape follows the knob: quarter circle in the bottom corner at each rail end (marker on the 45° line), half circle on the bottom edge in the middle and at assigned optional slots (marker at top centre); empty slots have no dial.
+  - Three rings: inner = function icon (on press: fills with the function colour and shows On/Off, Play/Pause …); middle = main value; outer = second value, only during hold + turn, while the middle ring shrinks and dims.
+  - The whole value ring (ticks and numbers) rotates under the fixed marker; label spacing follows label width so neighbours never overlap.
+  - Motion: the dial appears as soon as the knob slides (it previously appeared only after a turn), follows the knob live as a half circle, stretches toward the direction of travel, and settles into the slot's shape with a short spring. Idle = edge strip only, dim. Fades about 2 s after the last action. Unavailable actions grey the inner disc and show the reason above the dial. Gesture hints still appear on arrival.
+  - The SK-2.0.0 build (simple arc, the Ch4 Figure 4-6 states) stays frozen in releases/SK-2.0.0/.
+- **All apps:** the driver fan now starts at level 2, matching the task cards (Appendix چ, Table چ-1). This changes the T12 start state, hence the patch bumps TB-3.1.1 and SK-1.0.1.
+
 ## Ch5 test builds — frozen 19 Oct 2026 (releases/)
 The Ch5 test runs three apps in a fixed order for every participant: **TB → SK1 → SK2** (Amir, 19 Oct). Input for SK1 and SK2: a plain Bluetooth mouse; press = middle button only.
 

@@ -122,7 +122,7 @@ const P = {
 function fresh() {
   return {
     screen: 'home', sheet: null, locked: false, zoom: 1,
-    clim: { dOn: true, pOn: true, dT: 22, pT: 22, fan: 3, fanP: 3, auto: false, ac: true, recirc: false, sync: false, mode: 'face',
+    clim: { dOn: true, pOn: true, dT: 22, pT: 22, fan: 2, fanP: 3, auto: false, ac: true, recirc: false, sync: false, mode: 'face',
             seatL: 0, seatR: 0, ventL: 0, ventR: 0, wheel: false },
     media: { src: 'bt', playing: true, track: 0, pos: 37, usb: 0, upos: 0, fm: 1, freq: 95.5, vol: 14, mute: false },
     phone: { tab: 'recents', open: null, dial: '', call: null,

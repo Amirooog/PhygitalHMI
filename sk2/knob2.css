@@ -152,3 +152,19 @@ html.knob-nocursor, html.knob-nocursor * { cursor: none !important; }
 #kCfg .cf-btn.pri { background: var(--acc); color: #0B0C0E; border-color: transparent; }
 #kCfg .cf-note { margin: 0; color: var(--tx3); font-size: 14px; }
 .rowr { display: flex; align-items: center; gap: 10px; }
+
+/* ---------- dial (Figure 5-4): quarter circle at the rail ends, half circle elsewhere; three rings ---------- */
+#kDial { position: fixed; inset: 0; z-index: 56; pointer-events: none; opacity: 0; transition: opacity .28s ease; }
+#kDial.show { opacity: 1; }
+#kDial svg { position: absolute; inset: 0; overflow: visible; }
+#kDial .kd-bg { fill: var(--card); stroke: var(--glass-edge); stroke-width: 1; filter: drop-shadow(0 -6px 24px rgba(0, 0, 0, .35)); }
+#kDial .kd-band { fill: var(--tile); }
+#kDial .kd-tick { stroke: var(--tx3); stroke-width: 1.4; opacity: .55; }
+#kDial .kd-num { fill: var(--tx2); text-anchor: middle; dominant-baseline: central; font-family: var(--font-ui, system-ui), sans-serif; font-variant-numeric: tabular-nums; }
+#kDial .kd-num.on { font-weight: 700; }
+#kDial .kd-inner { transition: fill .15s; }
+#kDial .kd-ic { fill: #fff; font-family: "Material Symbols Rounded"; font-size: 26px; text-anchor: middle; dominant-baseline: central; font-variation-settings: "FILL" 1, "wght" 400; }
+#kDial .kd-lbl { fill: #fff; font-family: var(--font-ui, system-ui), sans-serif; font-size: 12px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+#kHint .kh-na { color: var(--tx); border-color: #F0605A; }
+#kHint .kh-na b { color: #F0605A; }
+#kHint { bottom: calc(6px + 190px); }
