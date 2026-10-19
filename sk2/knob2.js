@@ -52,7 +52,7 @@ function climate(side) {
   const d = side === 'L', on = d ? 'dOn' : 'pOn', t = d ? 'dT' : 'pT', fan = d ? 'fan' : 'fanP', seat = 'seat' + side, vent = 'vent' + side;
   const who = d ? 'Driver' : 'Passenger';
   return {
-    key: d ? 'driver' : 'passenger', n: who + ' temp', short: 'Temp', ic: d ? 'thermostat' : 'airline_seat_recline_normal', col: d ? '#FF7A45' : '#5BD08A',
+    key: d ? 'driver' : 'passenger', n: who + ' temp', short: 'Temp', short2: 'Fan', ic: 'thermostat', col: d ? '#FF7A45' : '#5BD08A',
     hints: [['Turn', 'Temperature'], ['Press', 'Seat heater'], ['Hold + turn', 'Fan']],
     turn(s, k) { const c = s.clim; c[on] = true; c[t] = clamp(c[t] + 0.5 * k, 16, 28); if (d && c.sync) c.pT = c.dT; if (!d) c.sync = false; },
     hturn(s, k) { const c = s.clim; c[on] = true; c.auto = false; c[fan] = clamp((c[fan] ?? c.fan) + k, 1, 7); },
@@ -71,7 +71,7 @@ const FN = {
   driver: climate('L'),
   passenger: climate('R'),
   media: {
-    key: 'media', n: 'Media', short: 'Media', ic: 'volume_up', col: '#A89BFF',
+    key: 'media', n: 'Media', short: 'Media', short2: 'Track', ic: 'volume_up', col: '#A89BFF',
     hints: [['Turn', 'Volume'], ['Press', 'Play / pause'], ['Hold + turn', 'Next / previous track']],
     turn(s, k) { const m = s.media; m.mute = false; m.vol = clamp(m.vol + k, 0, 30); },
     hturn(s, k) {
@@ -97,7 +97,7 @@ const FN = {
     main(s) { const v = this.mode === 'vent'; return { id: 'lvl-' + this.mode, head: 'Driver seat ' + (v ? 'ventilation' : 'heating'), items: LV, cur: v ? s.clim.ventL : s.clim.seatL }; }
   },
   nav: {
-    key: 'nav', n: 'Navigation', short: 'Nav', ic: 'near_me', col: '#4CC3E0', opt: true,
+    key: 'nav', n: 'Navigation', short: 'Nav', short2: 'Charge', ic: 'near_me', col: '#4CC3E0', opt: true,
     hints: [['Turn', 'Favourites'], ['Press', 'Start route'], ['Hold + turn', 'Nearest chargers']],
     list: 'fav', i: -1,
     pick(s, list, k) {
@@ -122,7 +122,7 @@ const FN = {
     second(s) { return { id: 'nav-ev', head: 'Nearest chargers', ic: 'ev_station', items: D.chargers.map(i => D.poi[i].n), cur: Math.max(0, this.list === 'ev' ? this.i : 0) }; }
   },
   drive: {
-    key: 'drive', n: 'Drive mode', short: 'Drive', ic: 'directions_car', col: '#FFC24B', opt: true,
+    key: 'drive', n: 'Drive mode', short: 'Drive', short2: 'ESP', ic: 'directions_car', col: '#FFC24B', opt: true,
     hints: [['Turn', 'Drive mode'], ['Hold + turn', 'Stability control']],
     turn(s, k) {
       const c = s.car, i = ROT.indexOf(c.mode), j = clamp((i < 0 ? 1 : i) + k, 0, ROT.length - 1), m = D.dmodes[ROT[j]];
@@ -231,7 +231,8 @@ function drawDial() {
   else { const f = R.inner / 72; cxI = CX + (leftQ ? 28 : -28) * f; cyI = CY - 44 * f; lx = CX + (leftQ ? 8 : -8) * f; ly = CY - 16 * f; anc = leftQ ? 'start' : 'end'; }
   const isz = (K.iconSize || 100) / 100;
   const fill = pr > 0.02 ? (content.flash && content.flash.on ? col : '#5a5f68') : '#1B1F24';
-  const label = pr > 0.5 && content.flash ? content.flash.short : p.short;
+  const layer2 = l2 > 0.5 && content.second;   // inner disc names the ring being changed (wireframe: «فن» during hold + turn)
+  const label = pr > 0.5 && content.flash ? content.flash.short : layer2 ? (p.short2 || p.short) : p.short;
   dial.innerHTML = `<svg width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}" aria-hidden="true">
     <defs><clipPath id="kdClip"><path d="${clip}"/></clipPath></defs>
     <g transform="translate(${CX} ${CY}) scale(${1 + stretch} ${1 - stretch * 0.35}) translate(${-CX - dir * stretch * 40} ${-CY})">
@@ -239,10 +240,10 @@ function drawDial() {
       ${ring(content.main, SP.rot.x, m0, m1, a0, a1, idx, col, l2 > 0.05 ? 1 - 0.55 * Math.min(1, l2) : 1, l2 > 0.5)}
       ${l2 > 0.02 ? ring(content.second, SP.rot2.x, o0, o1, a0, a1, idx, col, Math.min(1, l2), false) : ''}
       <path d="${sector(CX, CY, 0, R.inner * (1 + pr * 0.08), a0, a1)}" style="fill:${fill}" class="kd-inner"/>
-      <text x="${cxI}" y="${cyI}" class="kd-ic" style="font-size:${26 * isz}px">${content.na ? 'block' : pr > 0.5 && content.flash ? content.flash.icon : p.ic}</text>
-      <text x="${lx}" y="${ly}" class="kd-lbl" text-anchor="${anc}" style="font-size:${12 * isz}px">${esc(label)}</text>
       ${tri}
-    </g></svg>`;
+    </g></svg>
+    <span class="kd-ic ms" aria-hidden="true" style="left:${cxI}px;top:${cyI}px;font-size:${26 * isz}px">${content.na ? 'block' : pr > 0.5 && content.flash ? content.flash.icon : layer2 ? (content.second.ic || p.ic) : p.ic}</span>
+    <span class="kd-lbl" style="left:${lx}px;top:${ly}px;font-size:${12 * isz}px;transform:translate(${anc === 'start' ? '0' : anc === 'end' ? '-100%' : '-50%'}, -50%)">${esc(label)}</span>`;
 }
 const slotShape = z => {
   const n = active().length, W = window.innerWidth;

@@ -163,8 +163,8 @@ html.knob-nocursor, html.knob-nocursor * { cursor: none !important; }
 #kDial .kd-num { fill: var(--tx2); text-anchor: middle; dominant-baseline: central; font-family: var(--font-ui, system-ui), sans-serif; font-variant-numeric: tabular-nums; }
 #kDial .kd-num.on { font-weight: 700; }
 #kDial .kd-inner { transition: fill .15s; }
-#kDial .kd-ic { fill: #fff; font-family: "Material Symbols Rounded"; font-size: 26px; text-anchor: middle; dominant-baseline: central; font-variation-settings: "FILL" 1, "wght" 400; }
-#kDial .kd-lbl { fill: #fff; font-family: var(--font-ui, system-ui), sans-serif; font-size: 12px; font-weight: 600; dominant-baseline: central; }
+#kDial .kd-ic { position: absolute; transform: translate(-50%, -50%); color: #fff; line-height: 1; font-variation-settings: "FILL" 1, "wght" 400; pointer-events: none; }
+#kDial .kd-lbl { position: absolute; color: #fff; font-family: var(--font-ui, system-ui), sans-serif; font-size: 12px; font-weight: 600; line-height: 1; white-space: nowrap; pointer-events: none; }
 #kHint .kh-na { color: var(--tx); border-color: #F0605A; }
 #kHint .kh-na b { color: #F0605A; }
 #kHint { bottom: calc(6px + 190px); }

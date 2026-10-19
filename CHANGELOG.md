@@ -14,6 +14,10 @@ Rules
 - Freeze a build before data collection starts: `tools/freeze.sh <app>` copies it with shared/ to `releases/<id>/`; change nothing in a frozen build until collection ends (fixes get a new version).
 - Each app folder ships its `index.html` and `sw.js` together; the id in both must match.
 
+## SK-2.2.1 (19 Oct 2026, frozen)
+- Dial icon and label are now HTML over the dial instead of SVG text (iPad Safari did not reliably turn icon-font words into icons inside SVG).
+- Both temperature positions use the thermostat icon. During hold + turn the inner disc shows the second value's icon and name (Fan, Track, Charge, ESP), as in the wireframe.
+
 ## TB-3.1.2 · SK-1.0.2 · SK-2.2.0 (19 Oct 2026, frozen)
 - **Automatic session (all three apps, researcher panel → ▶ Run session):** runs every remaining Ch5 task and repetition in order for the selected participant. Each task shows the goal full screen with a countdown (3, 4 or 6 s, or "Tap Start"), then the trial runs; on success a check mark, then the next goal; a timeout or "End as not completed" also moves on. "Stop session" on the goal screen or in the panel stops it. At the end: "All tasks are done. Thank you!". While a goal screen is up, wheel and middle-button input is blocked, so the knob cannot change the start state. "Run one" still runs a single task.
 - **SK2 dial settings (Settings):** Knob · dial position (corner dials inward, all dials up from the bottom edge, in 8 px steps) and Knob · dial size (dial 50–200 %, icon 50–250 %, Reset). Each change shows the dial as a preview; gesture hints move up with the dial.
