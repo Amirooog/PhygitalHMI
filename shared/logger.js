@@ -7,7 +7,8 @@ window.PHMI_LOG = (() => {
   const write = a => { try { localStorage.setItem(KEY, JSON.stringify(a.slice(0, MAX))); return true; } catch (e) { return false; } };
   let mem = read();
 
-  const COLS = ['build', 'app', 'participant', 'condition', 'order', 'task', 'level', 'result', 'duration_s', 'first_touch_s',
+  const COLS = ['build', 'app', 'participant', 'condition', 'order', 'task', 'level', 'rep', 'result', 'assisted', 'incomplete',
+    'err_wrong_position', 'err_overshoot', 'err_unintended', 'unintended_fields', 'duration_s', 'first_touch_s',
     'touches', 'misses', 'knob_actions', 'first_knob_s', 'screens', 'path', 'theme', 'accent', 'occlusion', 'tsot_s', 'open_intervals', 'touches_occluded',
     'started_at', 'trial_id'];
   const q = v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
@@ -17,9 +18,11 @@ window.PHMI_LOG = (() => {
     all: () => mem,
     add(rec) { mem.unshift(rec); return write(mem); },
     clear() { mem = []; write(mem); },
+    update(id, patch) { const r = mem.find(x => x.id === id); if (r) { Object.assign(r, patch); write(mem); } },
     csv() {
       const rows = [...mem].reverse().map(r => [
-        r.build, r.app, r.participant, r.condition, r.order || '', r.task, r.level, r.result, s2(r.durationMs), s2(r.firstTouchMs),
+        r.build, r.app, r.participant, r.condition, r.order || '', r.task, r.level, r.rep ?? '', r.result, r.assisted ?? '', r.incomplete ?? '',
+        r.errWrongPos ?? '', r.errOvershoot ?? '', r.errUnintended ?? '', r.unintended || '', s2(r.durationMs), s2(r.firstTouchMs),
         r.touches, r.misses, r.knob || 0, s2(r.firstKnobMs), (r.screens || []).join(' > '), (r.path || []).map(p => p.a + (p.o ? '*' : '')).join(' > '),
         r.theme, r.accent, r.occlusion, s2(r.tsotMs), r.openIntervals ?? '', r.touchesOccluded ?? '', r.startedAt, r.id
       ].map(q).join(','));

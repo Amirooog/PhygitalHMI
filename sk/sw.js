@@ -1,5 +1,5 @@
 // Offline support for the Sliding Knob. Bump VERSION with every build; it must match BUILD and HMI_CONFIG in index.html.
-const VERSION = 'SK-1.0.0-dev.8';
+const VERSION = 'SK-1.0.0';
 const SHELL = ['./', 'index.html', '../shared/hmi.css', '../shared/hmi.js', 'manifest.webmanifest', '../shared/tokens.css', '../shared/tasks.js', '../shared/logger.js', '../shared/researcher.js', '../shared/researcher.css', '../shared/boot.js', '../shared/boot.css', 'knob.js', 'knob.css',
   'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png'];
 

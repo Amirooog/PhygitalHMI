@@ -17,9 +17,10 @@ The earlier touch app (TB-1.x and TB-2.x) lives in the separate repo `cabin-hmi`
 |---|---|
 | `shared/` | Everything both prototypes use: `tokens.css` (colours, type, spacing), `icons/`, and later `tasks.js`, `logger.js`, `researcher.js` |
 | `tb/` | Touch Baseline app (installs as its own home-screen app) |
-| `sk/` | Sliding Knob app (installs as its own home-screen app) |
+| `sk/` | Sliding Knob 1 (SK1): the 14 Oct concept, installs as "Knob 1" |
+| `sk2/` | Sliding Knob 2 (SK2): the Ch4 design, installs as "Knob 2" |
 | `xp/` | Experiments that never go to participants, one subfolder each (e.g. `xp/mouse-probe/`) |
-| `releases/` | Frozen copies made when data collection starts, e.g. `releases/TB-3.0.0-field/`. Never edited. |
+| `releases/` | Frozen copies made with `tools/freeze.sh` before data collection, e.g. `releases/SK-2.0.0/sk2/`. Never edited. |
 
 ## Naming rules
 

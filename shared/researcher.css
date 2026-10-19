@@ -58,3 +58,13 @@
 #rp tr.on td { background: #2A1F0B; }
 #rp td.pact { display: flex; gap: 6px; }
 #rp td.pact .rb { min-height: 36px; padding: 0 10px; font-size: 13px; }
+
+/* Ch5 run */
+#rp .rnext { min-height: 56px; font-size: 15px; text-align: left; padding: 0 16px; }
+#rp .rrep { display: block; font-size: 12px; color: #A89877; margin-top: 2px; }
+#rp .rrep.ok { color: #5BD08A; }
+#rp details.rmore summary { cursor: pointer; color: #A89877; font-size: 13px; padding: 6px 0; }
+/* start-of-task flash (video sync) */
+#rflash { position: fixed; inset: 0; z-index: 500; background: #fff; opacity: 0; pointer-events: none; }
+#rflash.go { animation: rflash .25s ease-out; }
+@keyframes rflash { 0% { opacity: 1; } 100% { opacity: 0; } }

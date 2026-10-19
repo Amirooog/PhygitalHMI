@@ -4,15 +4,37 @@ Version names: `LINE-MAJOR.MINOR.PATCH` (e.g. `TB-3.0.0`).
 
 | Part | Meaning |
 |---|---|
-| **LINE** | Which prototype. `TB` Touch Baseline · `SK` Sliding Knob · `XP` experiments that never go to participants |
+| **LINE** | Which prototype. `TB` Touch Baseline · `SK` Sliding Knob (app lines SK1 and SK2) · `XP` experiments that never go to participants |
 | **MAJOR** | Anything that changes a **task path**: where a control is, how many steps a task takes, what a control shows (label vs icon), gestures. **Trial data from different majors must not be pooled.** |
 | **MINOR** | Visible change that leaves every task path intact: styling, new screens or options that are off by default, researcher tools. |
 | **PATCH** | Bug fix. If a fix changes what a participant could do (e.g. a control that did not work), note it — trials run on the broken build for that task are invalid. |
 
 Rules
 - The build id is stamped into every trial and the CSV `build` column, together with theme and accent colour.
-- Freeze a build before data collection starts: copy it to `releases/<id>-field/`, tag it, and change nothing until collection ends.
+- Freeze a build before data collection starts: `tools/freeze.sh <app>` copies it with shared/ to `releases/<id>/`; change nothing in a frozen build until collection ends (fixes get a new version).
 - Each app folder ships its `index.html` and `sw.js` together; the id in both must match.
+
+## Ch5 test builds — frozen 19 Oct 2026 (releases/)
+The Ch5 test runs three apps in a fixed order for every participant: **TB → SK1 → SK2** (Amir, 19 Oct). Input for SK1 and SK2: a plain Bluetooth mouse; press = middle button only.
+
+- **TB-3.1.0** (`tb/`): Ch5 task set (below). No change to touch paths.
+- **SK-1.0.0** (`sk/`, app line `SK1`): the 14 Oct concept, kept as it was (5 positions, 5 gestures, arc dial). Only the shared Ch5 task set and logging were added. Home-screen name "Knob 1".
+- **SK-2.0.0** (`sk2/`, new app, app line `SK2`): the Ch4 design (Draft 21.11). Home-screen name "Knob 2".
+  - Slots, left to right: Driver temp · optional 1 · Media · optional 2 · Passenger temp. Optional slots are empty by default and skipped by the knob; one slide zone per filled slot.
+  - Three gestures: turn (main value), press (button released with no turn), hold and turn (second value). No double press, no long press, no screen-off mode.
+  - Driver temp: temperature · seat heater on/off · driver fan. Media: volume · play/pause · next/previous track. Passenger temp: temperature · seat heater · passenger fan (new state `clim.fanP`).
+  - Optional functions: seat ventilation (level 0–3 · heating ↔ ventilation), navigation shortcut (favourites max 6 · start route · nearest chargers), drive mode (modes · — · stability control, Off only when parked).
+  - Values stop at both ends of their range; turning a zone that is off switches it on; slide locked 350 ms after a turn and while the button is held.
+  - Digital layer (Ch4 Figure 4-6): dim edge strip when idle, lit for 3 s on arrival with the 3 gesture hints; arc with previous/current/next (2 s); paler arc for the second value; on/off icon on press (1 s); unavailable = greyed item and a reason (2 s).
+  - Customization page (Settings → Knob · slots → Customize): rail picture with 5 slots, the 3 main slots locked, each optional slot picks Empty / Seat ventilation / Navigation shortcut / Drive mode. Opens only while parked; closes without saving if the car starts moving (R35).
+  - Tutorial (Settings, off by default) teaches slide, turn, press, hold and turn. Notch calibration as in SK1.
+- **Shared (all three):**
+  - Ch5 task set, Table 5-1: T1 ×3, T12 ×3 (new: turn the fan up), T2, T5 ×3, T3, T9, T10. T4, T6, T11 hidden (kept in code). A "Next" button runs the next task and repetition for the selected participant in this app.
+  - New CSV columns: `order` (TB-SK1-SK2), `rep`, `assisted` (researcher toggle, also on the last trial), `incomplete`, `err_wrong_position` (knob action at another position), `err_overshoot` (went past the target), `err_unintended` (count) and `unintended_fields`.
+  - White flash at each task start, for syncing the video with the log.
+  - Vehicle Parked / Moving switch in the researcher panel (for the parked-only rules).
+  - The participant list counts trials for TB / SK1 / SK2; the condition label is kept per app.
+- Tested in a browser: all Ch5 tasks succeed in TB by touch, and T1/T12/T5 (×3), T2 and T3 succeed in SK1 and SK2 by knob with zero touches.
 
 ## SK-1.0.0 — in progress
 - dev.1: the same app as TB (shared/hmi.js) plus the knob layer (sk/knob.js, knob.css). A Bluetooth mouse inside the knob, read with the rules from the mouse probe: slide = cursor position across the screen in 4 equal zones (screen edges = end stops, small hysteresis), turn = wheel bursts with 1 step per ~185 px notch, press = middle button. Sideways movement is ignored for 350 ms after a turn.

@@ -122,7 +122,7 @@ const P = {
 function fresh() {
   return {
     screen: 'home', sheet: null, locked: false, zoom: 1,
-    clim: { dOn: true, pOn: true, dT: 22, pT: 22, fan: 3, auto: false, ac: true, recirc: false, sync: false, mode: 'face',
+    clim: { dOn: true, pOn: true, dT: 22, pT: 22, fan: 3, fanP: 3, auto: false, ac: true, recirc: false, sync: false, mode: 'face',
             seatL: 0, seatR: 0, ventL: 0, ventR: 0, wheel: false },
     media: { src: 'bt', playing: true, track: 0, pos: 37, usb: 0, upos: 0, fm: 1, freq: 95.5, vol: 14, mute: false },
     phone: { tab: 'recents', open: null, dial: '', call: null,
@@ -130,7 +130,7 @@ function fresh() {
                    { cid: 'ali', k: 'Missed', w: 'Yesterday' }, { cid: 'kaveh', k: 'Outgoing', w: 'Monday' },
                    { cid: 'parisa', k: 'Incoming', w: 'Sunday' }] },
     nav: { mode: 'idle', q: '', sel: null, dest: null, t0: 0 },
-    car: { tab: 'drive', mode: 'everyday', regen: 2, steer: 2, ride: 2, esp: 3,
+    car: { tab: 'drive', mode: 'everyday', regen: 2, steer: 2, ride: 2, esp: 3, moving: false,
            soc: 68, limit: 80, plugged: true, charging: true, schedule: false, port: false }
   };
 }
@@ -220,7 +220,7 @@ function renderBar() {
     const v = side === 'd' ? c.dT : c.pT, who = side === 'd' ? 'Driver' : 'Passenger', on = side === 'd' ? c.dOn : c.pOn;
     return `<div class="tpill">
       <button class="down" ${A('temp', side + '-')} aria-label="${who} temperature down">${ms('expand_more')}</button>
-      <span class="tval${on ? '' : ' off'}"><b>${tempFmt(v)}${ms('mode_fan')}</b><small>${!on ? 'OFF' : c.auto ? 'AUTO' : 'FAN ' + c.fan}</small></span>
+      <span class="tval${on ? '' : ' off'}"><b>${tempFmt(v)}${ms('mode_fan')}</b><small>${!on ? 'OFF' : c.auto ? 'AUTO' : 'FAN ' + (side === 'd' ? c.fan : (c.fanP ?? c.fan))}</small></span>
       <button class="up" ${A('temp', side + '+')} aria-label="${who} temperature up">${ms('expand_less')}</button>
     </div>`;
   };

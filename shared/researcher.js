@@ -16,12 +16,14 @@ const TIMEOUT = 120000;
 const SKEY = 'phmi.session';
 const SES = Object.assign({ participant: 'P01', condition: H.app, occ: { on: false, open: 1500, closed: 1500 } },
   (() => { try { return JSON.parse(localStorage.getItem(SKEY) || '{}'); } catch (e) { return {}; } })());
-const saveSes = () => { try { localStorage.setItem(SKEY, JSON.stringify(SES)); } catch (e) { /* in memory only */ } };
+SES.condition = SES['cond_' + H.app] || H.app;          // the condition is kept per app (TB, SK, SK2 share this storage)
+const saveSes = () => { SES['cond_' + H.app] = SES.condition;  try { localStorage.setItem(SKEY, JSON.stringify(SES)); } catch (e) { /* in memory only */ } };
 
 /* ---------- participants (shared by TB and SK on this iPad) ----------
    Names and background stay on this iPad and in their own CSV; the trial log only carries the ID (P01…),
    so trial data can be shared or analysed without names. */
 const PKEY = 'phmi.participants';
+const ORDER = 'TB-SK1-SK2';   // fixed order for every participant (Amir, 19 Oct 2026)
 const PF = [   // field, label, kind, options
   ['name', 'Name', 'text'], ['age', 'Age', 'num'],
   ['gender', 'Gender', 'seg', ['Female', 'Male', 'Other / prefer not']],
@@ -30,7 +32,6 @@ const PF = [   // field, label, kind, options
   ['touchcar', 'Touchscreen car', 'seg', ['None', 'Sometimes', 'Regularly']],
   ['hand', 'Handedness', 'seg', ['Right', 'Left']],
   ['glasses', 'Glasses / lenses', 'seg', ['No', 'Yes']],
-  ['order', 'Order', 'seg', ['TB first', 'SK first']],
   ['consent', 'Consent signed', 'seg', ['No', 'Yes']],
   ['notes', 'Notes', 'area']
 ];
@@ -67,7 +68,7 @@ function closePanel() { rp.hidden = true; }
 /* ---------- touch log (only while a trial runs; taps on the clock are never counted) ---------- */
 H.root.addEventListener('pointerdown', e => {
   if (!trial || !trial.running || e.target.closest('.clock')) return;
-  if (e.pointerType === 'mouse' && H.app === 'SK') return;   // in SK the mouse is the knob: logged through PHMI_TRACE, never as a touch
+  if (e.pointerType === 'mouse' && /^SK/.test(H.app)) return;   // in SK the mouse is the knob: logged through PHMI_TRACE, never as a touch
   const t = Math.round(performance.now() - trial.start);
   const el = e.target.closest('[data-a]'), wh = e.target.closest('.wheel');
   const lbl = el ? el.dataset.a + (el.dataset.v !== undefined ? ':' + el.dataset.v : '') : wh ? 'wheel:' + wh.dataset.wheel : 'miss';
@@ -85,17 +86,26 @@ window.PHMI_TRACE = label => {
   const t = Math.round(performance.now() - trial.start);
   trial.knob++;
   if (trial.firstKnob == null) trial.firstKnob = t;
+  const m = /^(turn|hturn|press|dbl|long):([a-z]+)/.exec(label);
+  if (m && trial.task.pos && m[2] !== trial.task.pos) trial.errPos++;
   if (trial.path.length < 400) trial.path.push({ t, a: 'k:' + label, s: H.state().screen });
 };
 
 /* ---------- running a task ---------- */
+const repsDone = (id) => LOG.all().filter(r => r.participant === SES.participant && r.app === H.app && r.task === id).length;
+function nextCh5() {
+  for (const k of TASKS.filter(x => x.ch5).sort((a, b) => a.ch5 - b.ch5)) if (repsDone(k.id) < k.reps) return k;
+  return null;
+}
+const flash = document.createElement('div'); flash.id = 'rflash'; flash.setAttribute('aria-hidden', 'true'); document.body.appendChild(flash);
 function startTask(id) {
   const task = TASKS.find(x => x.id === id);
   if (!task) return;
+  const rep = repsDone(id) + 1;
   closePanel();
   H.reset();
   ovl.innerHTML = `<div class="rbox">
-      <div class="rk">${task.id} · ${task.lv}</div>
+      <div class="rk">${task.id} · ${task.lv}${task.reps ? ' · ' + rep + ' of ' + task.reps : ''}</div>
       <div class="rq">${esc(task.text)}</div>
       ${SES.occ.on ? '<div class="rn">The screen will go dark at intervals. Keep going.</div>' : ''}
       <button class="rgo" type="button">Start</button>
@@ -103,10 +113,12 @@ function startTask(id) {
   ovl.hidden = false;
   ovl.querySelector('.rgo').onclick = () => {
     ovl.hidden = true;
+    flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go');   // white flash: syncs the video with the log
     const p = H.prefs();
     trial = {
-      task, base: clone(H.state()), start: performance.now(), startedAt: new Date().toISOString(),
-      touches: 0, misses: 0, first: null, knob: 0, firstKnob: null, path: [], running: true, theme: p.theme, accent: p.accent, occ: null
+      task, rep, base: clone(H.state()), start: performance.now(), startedAt: new Date().toISOString(),
+      touches: 0, misses: 0, first: null, knob: 0, firstKnob: null, path: [], running: true, theme: p.theme, accent: p.accent, occ: null,
+      assisted: false, errPos: 0, errOver: 0, wasOver: false, changed: new Set()
     };
     H.lock.trial = true;
     if (SES.occ.on) { trial.occ = { open: true, openAt: performance.now(), tsot: 0, intervals: 1, touches: 0, o: SES.occ.open, c: SES.occ.closed, timer: null }; occCycle(); }
@@ -136,8 +148,10 @@ function finish(result) {
   const o = trial.occ;
   const rec = {
     id: 'T' + Date.now().toString(36), build: H.build, app: H.app,
-    participant: SES.participant || '—', condition: SES.condition || '', order: (pById(SES.participant) || {}).order || '',
-    task: trial.task.id, level: trial.task.lv, result,
+    participant: SES.participant || '—', condition: SES.condition || '', order: ORDER,
+    task: trial.task.id, level: trial.task.lv, rep: trial.rep, result,
+    assisted: trial.assisted ? 1 : 0, incomplete: result === 'success' ? 0 : 1,
+    errWrongPos: trial.errPos, errOvershoot: trial.errOver, errUnintended: trial.changed.size, unintended: [...trial.changed].join(' '),
     durationMs: Math.round(end - trial.start), firstTouchMs: trial.first,
     touches: trial.touches, misses: trial.misses, knob: trial.knob, firstKnobMs: trial.firstKnob,
     screens: [...new Set(trial.path.map(p => p.s))], path: trial.path,
@@ -155,12 +169,19 @@ function finish(result) {
 }
 setInterval(() => {
   if (!trial || !trial.running) return;
-  if (trial.task.ok(H.state(), trial.base, H.data)) finish('success');
+  const st = H.state(), tk = trial.task;
+  if (tk.over) { const o = !!tk.over(st, trial.base); if (o && !trial.wasOver) trial.errOver++; trial.wasOver = o; }
+  const get = (o, path) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+  for (const f of (window.PHMI_WATCH || [])) {
+    if ((tk.allow || []).includes(f)) continue;
+    if (JSON.stringify(get(st, f)) !== JSON.stringify(get(trial.base, f))) trial.changed.add(f);
+  }
+  if (tk.ok(st, trial.base, H.data)) finish('success');
   else if (performance.now() - trial.start > TIMEOUT) finish('timeout');
 }, 150);
 
 /* ---------- participant panel parts ---------- */
-const trialsOf = id => { const n = { TB: 0, SK: 0 }; LOG.all().forEach(r => { if (r.participant === id && n[r.app] != null) n[r.app]++; }); return n; };
+const trialsOf = id => { const n = { TB: 0, SK1: 0, SK2: 0 }; LOG.all().forEach(r => { const a = r.app === 'SK' ? 'SK1' : r.app; if (r.participant === id && n[a] != null) n[a]++; }); return n; };
 function msgP(t) { const m = rp.querySelector('#pMsg'); if (m) m.textContent = t || ''; }
 function readForm() {
   if (!editing) return;
@@ -181,26 +202,26 @@ function participantBlock() {
       ${field(PF[PF.length - 1])}
       <div class="rfr"><button class="rb a" data-r="psave">Save and select</button><button class="rb" data-r="pcancel">Cancel</button>${isNew ? '' : `<button class="rb x" data-r="pdel" data-v="${esc(editing.id)}">Delete</button>`}</div>
       <div id="pMsg" class="rnote"></div>
-      <p class="rnote">Order is suggested by alternating (counterbalancing); change it if needed. Names stay on this iPad and in the participants file only — the trial log uses the ID.</p></section>`;
+      <p class="rnote">Every participant uses the apps in the same order: TB, then SK1, then SK2. Names stay on this iPad and in the participants file only — the trial log uses the ID.</p></section>`;
   }
   const cur = pById(SES.participant);
   const curLine = cur
-    ? `<div class="pcur"><b>${esc(cur.id)} · ${esc(cur.name)}</b><span>${[cur.age && cur.age + ' y', cur.gender, cur.order, cur.consent === 'Yes' ? 'consent ✓' : 'NO CONSENT YET'].filter(Boolean).map(esc).join(' · ')}</span>
+    ? `<div class="pcur"><b>${esc(cur.id)} · ${esc(cur.name)}</b><span>${[cur.age && cur.age + ' y', cur.gender, ORDER, cur.consent === 'Yes' ? 'consent ✓' : 'NO CONSENT YET'].filter(Boolean).map(esc).join(' · ')}</span>
         <div class="rfr"><button class="rb" data-r="pedit" data-v="${esc(cur.id)}">Edit</button></div></div>`
     : `<div class="pcur warn"><b>${SES.participant ? esc(SES.participant) + ' (not in the list)' : 'No participant selected'}</b><span>Add or select a participant before running tasks.</span></div>`;
-  const rows = PPL.map(p => { const n = trialsOf(p.id); return `<tr class="${p.id === SES.participant ? 'on' : ''}"><td>${esc(p.id)}</td><td>${esc(p.name)}</td><td>${esc(p.age || '')}</td><td>${esc(p.order || '')}</td><td>${p.consent === 'Yes' ? '✓' : '—'}</td><td>${n.TB} / ${n.SK}</td>
+  const rows = PPL.map(p => { const n = trialsOf(p.id); return `<tr class="${p.id === SES.participant ? 'on' : ''}"><td>${esc(p.id)}</td><td>${esc(p.name)}</td><td>${esc(p.age || '')}</td><td>${p.consent === 'Yes' ? '✓' : '—'}</td><td>${n.TB} / ${n.SK1} / ${n.SK2}</td>
       <td class="pact"><button class="rb ${p.id === SES.participant ? 'a' : ''}" data-r="psel" data-v="${esc(p.id)}">${p.id === SES.participant ? 'Selected' : 'Select'}</button><button class="rb" data-r="pedit" data-v="${esc(p.id)}">Edit</button></td></tr>`; }).join('');
   return `<section><h4>Participant</h4>${curLine}
-    <div class="rtw"><table><thead><tr><th>ID</th><th>Name</th><th>Age</th><th>Order</th><th>Consent</th><th>Trials TB / SK</th><th></th></tr></thead><tbody>
-      ${rows || '<tr><td colspan="7" class="rnote">No participants yet.</td></tr>'}</tbody></table></div>
+    <div class="rtw"><table><thead><tr><th>ID</th><th>Name</th><th>Age</th><th>Consent</th><th>Trials TB / SK1 / SK2</th><th></th></tr></thead><tbody>
+      ${rows || '<tr><td colspan="6" class="rnote">No participants yet.</td></tr>'}</tbody></table></div>
     <div class="rfr"><button class="rb a" data-r="pnew">+ New participant</button><button class="rb" data-r="pexport" ${PPL.length ? '' : 'disabled'}>Export participants CSV</button></div>
     <div id="pMsg" class="rnote"></div></section>`;
 }
 function pplCsv() {
   const q = v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
   const cols = ['id', 'name', 'age', 'gender', 'years', 'drives', 'touchcar', 'hand', 'glasses', 'order', 'consent', 'notes', 'created'];
-  const head = ['id', 'name', 'age', 'gender', 'years_driving', 'drives', 'touchscreen_car', 'handedness', 'glasses', 'order', 'consent', 'notes', 'created_at', 'trials_TB', 'trials_SK'];
-  return [head.join(','), ...PPL.map(p => { const n = trialsOf(p.id); return [...cols.map(c => q(p[c])), n.TB, n.SK].join(','); })].join('\n');
+  const head = ['id', 'name', 'age', 'gender', 'years_driving', 'drives', 'touchscreen_car', 'handedness', 'glasses', 'order', 'consent', 'notes', 'created_at', 'trials_TB', 'trials_SK1', 'trials_SK2'];
+  return [head.join(','), ...PPL.map(p => { const n = trialsOf(p.id); return [...cols.map(c => q(c === 'order' ? ORDER : p[c])), n.TB, n.SK1, n.SK2].join(','); })].join('\n');
 }
 async function shareCsv(name, text) {
   try {
@@ -221,8 +242,9 @@ function renderPanel() {
   const live = trial && trial.running
     ? `<div class="rlive"><b>Running ${trial.task.id} — ${esc(trial.task.text)}</b>
         <span class="rnote" id="rLive">${trial.touches} touches · ${s1(performance.now() - trial.start)} s${trial.occ ? ' · occlusion on' : ''}</span>
-        <div class="rfr"><button class="rb x" data-r="abort">End as not completed</button><button class="rb" data-r="close">Back to participant</button></div></div>`
-    : (R[0] ? `<div class="rlive"><b class="res-${R[0].result}">${R[0].task} · ${R[0].result} · ${s1(R[0].durationMs)} s · ${R[0].touches} touches (${R[0].misses} missed)${R[0].knob ? ' · ' + R[0].knob + ' knob' : ''}${R[0].tsotMs != null ? ' · TSOT ' + s1(R[0].tsotMs) + ' s' : ''}</b><span class="rnote">${esc(note)}</span></div>` : '');
+        <div class="rfr"><button class="rb ${trial.assisted ? 'a' : ''}" data-r="assist">${trial.assisted ? 'Help given ✓' : 'Mark help given'}</button><button class="rb x" data-r="abort">End as not completed</button><button class="rb" data-r="close">Back to participant</button></div></div>`
+    : (R[0] ? `<div class="rlive"><b class="res-${R[0].result}">${R[0].task} · ${R[0].result} · ${s1(R[0].durationMs)} s · ${R[0].touches} touches (${R[0].misses} missed)${R[0].knob ? ' · ' + R[0].knob + ' knob' : ''}${R[0].tsotMs != null ? ' · TSOT ' + s1(R[0].tsotMs) + ' s' : ''}</b><span class="rnote">rep ${R[0].rep || '—'} · errors: position ${R[0].errWrongPos ?? '—'}, overshoot ${R[0].errOvershoot ?? '—'}, unintended ${R[0].errUnintended ?? '—'} · ${esc(note)}</span>
+        <div class="rfr"><button class="rb ${R[0].assisted ? 'a' : ''}" data-r="assistlast">${R[0].assisted ? 'Help given ✓ (tap to undo)' : 'Mark help given'}</button></div></div>` : '');
   rp.innerHTML = `<div class="rpi">
     <header><b>Researcher · ${esc(H.app)} · ${esc(H.build)}</b><button class="rb" data-r="close">Close</button></header>
     <div class="rbody">
@@ -231,6 +253,7 @@ function renderPanel() {
       <section><h4>Session</h4>
         <div class="rfr"><label>Condition<input id="rC" value="${esc(SES.condition)}" autocomplete="off"></label>
           <button class="rb" data-r="reset">Reset app to start state</button></div>
+        <div class="rfr"><span class="rnote">Vehicle (for the parked-only rules)</span><button class="rb ${H.state().car.moving ? '' : 'a'}" data-r="moving" data-v="0">Parked</button><button class="rb ${H.state().car.moving ? 'a' : ''}" data-r="moving" data-v="1">Moving</button></div>
         <p class="rnote">Theme and accent are recorded with every trial and locked while it runs. Set them in Settings before the session.</p>
       </section>
       <section><h4>Occlusion</h4>
@@ -239,12 +262,18 @@ function renderPanel() {
           <label class="sm">Dark ms<input id="rX" inputmode="numeric" value="${SES.occ.closed}"></label></div>
         <p class="rnote">Touch keeps working while the screen is dark. TSOT = total visible time until the task was finished. Check the interval values against ISO 16673 before reporting them.</p>
       </section>
-      <section><h4>Tasks</h4><div class="rtl">
-        ${TASKS.map(k => `<div class="rtr"><span class="rc">${k.id}<small>${k.lv}</small></span><span class="rd">${esc(k.text)}</span><button class="rb a" data-r="run" data-v="${k.id}" ${trial && trial.running ? 'disabled' : ''}>Run</button></div>`).join('')}
-      </div></section>
+      ${(() => {
+        const nx = nextCh5(), busy = trial && trial.running;
+        const row = k => { const d = repsDone(k.id); return `<div class="rtr"><span class="rc">${k.id}<small>${k.lv}</small></span><span class="rd">${esc(k.text)}${k.reps ? `<small class="rrep ${d >= k.reps ? 'ok' : ''}">${Math.min(d, k.reps)} of ${k.reps} done${d > k.reps ? ' (+' + (d - k.reps) + ' extra)' : ''}</small>` : ''}</span><button class="rb ${nx && nx.id === k.id ? 'a' : ''}" data-r="run" data-v="${k.id}" ${busy ? 'disabled' : ''}>Run ${k.reps ? (d + 1) : ''}</button></div>`; };
+        return `<section><h4>Ch5 tasks · ${esc(SES.participant || 'no participant')} · ${esc(H.app)}</h4>
+          ${nx ? `<button class="rb a rnext" data-r="run" data-v="${nx.id}" ${busy ? 'disabled' : ''}>Next: ${nx.id} · ${esc(nx.text)} · ${repsDone(nx.id) + 1} of ${nx.reps}</button>` : '<p class="rnote">All Ch5 tasks done for this participant in this app.</p>'}
+          <div class="rtl">${TASKS.filter(k => k.ch5).sort((a, b) => a.ch5 - b.ch5).map(row).join('')}</div>
+          <details class="rmore"><summary>Other tasks (not in the Ch5 run)</summary><div class="rtl">${TASKS.filter(k => !k.ch5).map(row).join('')}</div></details>
+        </section>`;
+      })()}
       <section><h4>Trials on this iPad (${R.length})</h4>
-        <div class="rtw"><table><thead><tr><th>Build</th><th>P</th><th>Task</th><th>Result</th><th>Time s</th><th>Touches</th><th>Miss</th><th>Knob</th><th>TSOT s</th><th>Theme</th></tr></thead><tbody>
-        ${R.slice(0, 60).map(r => `<tr><td>${esc(r.build)}</td><td>${esc(r.participant)}</td><td>${r.task}</td><td class="res-${r.result}">${r.result}</td><td>${s1(r.durationMs)}</td><td>${r.touches}</td><td>${r.misses}</td><td>${r.knob || 0}</td><td>${s1(r.tsotMs)}</td><td>${esc(r.theme)}/${esc(r.accent)}</td></tr>`).join('') || '<tr><td colspan="10" class="rnote">No trials yet. Run a task above.</td></tr>'}
+        <div class="rtw"><table><thead><tr><th>Build</th><th>P</th><th>Task</th><th>Rep</th><th>Result</th><th>Time s</th><th>Touches</th><th>Miss</th><th>Knob</th><th>TSOT s</th><th>Theme</th></tr></thead><tbody>
+        ${R.slice(0, 60).map(r => `<tr><td>${esc(r.build)}</td><td>${esc(r.participant)}</td><td>${r.task}</td><td>${r.rep || ''}</td><td class="res-${r.result}">${r.result}${r.assisted ? ' · help' : ''}</td><td>${s1(r.durationMs)}</td><td>${r.touches}</td><td>${r.misses}</td><td>${r.knob || 0}</td><td>${s1(r.tsotMs)}</td><td>${esc(r.theme)}/${esc(r.accent)}</td></tr>`).join('') || '<tr><td colspan="11" class="rnote">No trials yet. Run a task above.</td></tr>'}
         </tbody></table></div>
         <div class="rfr"><button class="rb a" data-r="export">Export CSV</button><button class="rb" data-r="copy">Copy CSV</button><button class="rb x" data-r="clear" ${R.length ? '' : 'disabled'}>Delete all trials</button></div>
         <div id="rMsg" class="rnote"></div>
@@ -265,7 +294,7 @@ rp.addEventListener('click', async e => {
   if (c) { SES.condition = c.value.trim(); saveSes(); }
   if (editing) readForm();
   if (r === 'close') closePanel();
-  if (r === 'pnew') { editing = { id: nextId(), order: PPL.length % 2 ? 'SK first' : 'TB first', consent: 'No', created: new Date().toISOString() }; renderPanel(); }
+  if (r === 'pnew') { editing = { id: nextId(), order: ORDER, consent: 'No', created: new Date().toISOString() }; renderPanel(); }
   if (r === 'pedit') { const p = pById(v); if (p) { editing = clone(p); renderPanel(); } }
   if (r === 'pset') { readForm(); editing[b.dataset.f] = v; renderPanel(); }
   if (r === 'pcancel') { editing = null; renderPanel(); }
@@ -287,6 +316,9 @@ rp.addEventListener('click', async e => {
   if (r === 'pexport') msgP(await shareCsv('phygitalhmi-participants-' + new Date().toISOString().slice(0, 10) + '.csv', pplCsv()));
   if (r === 'run') { if (!pById(SES.participant) && !confirm('No participant selected. Run anyway?')) return; startTask(v); }
   if (r === 'abort') finish('abandoned');
+  if (r === 'assist' && trial) { trial.assisted = !trial.assisted; renderPanel(); }
+  if (r === 'assistlast') { const last = LOG.all()[0]; if (last) { LOG.update(last.id, { assisted: last.assisted ? 0 : 1 }); renderPanel(); } }
+  if (r === 'moving') { H.state().car.moving = v === '1'; H.render(); renderPanel(); }
   if (r === 'reset') { H.reset(); closePanel(); }
   if (r === 'occ') { SES.occ.on = v === '1'; saveSes(); renderPanel(); }
   if (r === 'export') { const res = await LOG.exportCsv(); msg(res === 'shared' ? 'Shared.' : res === 'downloaded' ? 'Downloaded ' + LOG.fileName() : ''); }

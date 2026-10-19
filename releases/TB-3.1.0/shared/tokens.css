@@ -1,0 +1,117 @@
+/* PhygitalHMI design tokens — direction D.
+   Shared by tb/ and sk/. Theme: <html data-theme="dark|light">. Accent: <html data-accent="cyan|amber|green|violet|coral">.
+   Every accent has a dark and a light value, each checked for at least 3:1 against the card colour of its theme. */
+
+:root {
+  /* type */
+  --font-ui: "Albert Sans", system-ui, sans-serif;
+  --fs-caption: 13px;
+  --fs-body: 16px;
+  --fs-title: 24px;
+  --fs-value: 28px;
+  --fs-hero: 46px;
+
+  /* shape and spacing */
+  --r-chip: 22px;
+  --r-tile: 18px;
+  --r-card: 28px;
+  --gap: 12px;
+  --pad: 16px;
+  --touch-min: 56px;          /* smallest touch target */
+  --safe-top: 28px;           /* iPadOS top blur (~5 mm); researcher setting */
+
+  /* bottom climate bar: always dark, in both themes */
+  --bar-bg: #0B0C0E;
+  --bar-pill: #17191C;
+  --bar-tx: #EDEEF0;
+  --bar-tx2: #A6ABB2;
+  --bar-off: #3A3E44;
+
+  /* semantic colours */
+  --hot: #FF6159;
+  --cool: #5AA2FF;
+  --heat: #FF7A45;
+  --heat-bg: rgba(255, 122, 69, .15);
+  --vent: #5AA2FF;
+  --vent-bg: rgba(90, 162, 255, .15);
+
+  /* dark theme (default) */
+  --map: #15181C;
+  --map-road: #1E2227;
+  --map-main: #2A2F35;
+  --card: #1D2025;
+  --card2: #24282E;
+  --tile: #2D3238;
+  --line: #30353C;
+  --tx: #EDEEF0;
+  --tx2: #A6ABB2;
+  --tx3: #8A9098;
+  --off: #40454C;
+  --sel-bg: #EDEEF0;
+  --sel-tx: #0B0C0E;
+  --band: rgba(255, 255, 255, .08);
+  --glass-bg: rgba(30, 33, 38, .55);
+  --glass-edge: rgba(255, 255, 255, .10);
+  --glass-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 14px 34px rgba(0, 0, 0, .30);
+  --glass-blur: blur(24px) saturate(1.25);
+
+  --acc: var(--acc-dark);
+  --acc-bg: color-mix(in srgb, var(--acc) 16%, transparent);
+}
+
+[data-theme="light"] {
+  --map: #E4E3DF;
+  --map-road: #F4F3F0;
+  --map-main: #FFFFFF;
+  --card: #F3F2EF;
+  --card2: #E9E8E4;
+  --tile: #FBFAF8;
+  --line: #D4D2CD;
+  --tx: #151617;
+  --tx2: #4C4F53;
+  --tx3: #64676B;
+  --off: #CFCDC8;
+  --sel-bg: #151617;
+  --sel-tx: #FFFFFF;
+  --band: rgba(20, 22, 24, .07);
+  --heat: #C2410C;
+  --heat-bg: rgba(194, 65, 12, .12);
+  --vent: #1D6FD1;
+  --vent-bg: rgba(29, 111, 209, .12);
+  --hot: #D9362B;
+  --cool: #1D6FD1;
+  --glass-bg: rgba(246, 245, 242, .58);
+  --glass-edge: rgba(255, 255, 255, .75);
+  --glass-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), 0 14px 34px rgba(20, 22, 24, .10);
+
+  --acc: var(--acc-light);
+}
+
+/* accent presets (default cyan) */
+:root,
+[data-accent="cyan"]   { --acc-dark: #4CC3E0; --acc-light: #0F7E9C; }
+[data-accent="amber"]  { --acc-dark: #F2A93B; --acc-light: #B86E00; }
+[data-accent="green"]  { --acc-dark: #5BD08A; --acc-light: #1E8A4C; }
+[data-accent="violet"] { --acc-dark: #A89BFF; --acc-light: #5B4BD1; }
+[data-accent="coral"]  { --acc-dark: #FF8A75; --acc-light: #C2412C; }
+
+/* matte glass for cards floating over the map */
+.glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-shadow);
+}
+
+/* icons: Material Symbols Rounded, weight 300 */
+.ms {
+  font-family: "Material Symbols Rounded";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 28px;
+  line-height: 1;
+  font-variation-settings: "wght" 300, "FILL" 0;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
