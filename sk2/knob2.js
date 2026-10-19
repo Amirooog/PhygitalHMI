@@ -29,7 +29,7 @@ if (!H) return;
 
 /* ---------- settings (per device) ---------- */
 const KEY = 'phmi.knob2';
-const K = Object.assign({ notch: 185, invert: false, hideCursor: true, blockClicks: true, tutorial: false, opt1: '', opt2: '' },
+const K = Object.assign({ notch: 185, invert: false, hideCursor: true, blockClicks: true, tutorial: false, opt1: '', opt2: '', dialX: 0, dialY: 0, dialSize: 100, iconSize: 100 },
   (() => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } })());
 const saveK = () => { try { localStorage.setItem(KEY, JSON.stringify(K)); } catch (e) { /* memory only */ } };
 const LOCK_MS = 350, BURST_GAP = 150;
@@ -182,7 +182,10 @@ function animate(now) {
 const kick = () => { if (!raf) raf = requestAnimationFrame(animate); };
 const snap = () => { for (const k in SP) { SP[k].x = SP[k].t; SP[k].v = 0; } };
 
-const R = { inner: 72, m0: 80, m1: 134, o0: 140, o1: 184 };
+const R0 = { inner: 72, m0: 80, m1: 134, o0: 140, o1: 184 };
+let R = R0;
+const sizeR = () => { const f = (K.dialSize || 100) / 100; R = {}; for (const k in R0) R[k] = R0[k] * f; };
+sizeR();
 const pt = (cx, cy, r, a) => [cx + r * Math.cos(a * Math.PI / 180), cy - r * Math.sin(a * Math.PI / 180)];
 function sector(cx, cy, r0, r1, a0, a1) {
   const big = a1 - a0 > 180 ? 1 : 0, [x0, y0] = pt(cx, cy, r1, a0), [x1, y1] = pt(cx, cy, r1, a1);
@@ -212,7 +215,7 @@ let CX = 0, CY = 0;
 function drawDial() {
   if (!content) return;
   const W = window.innerWidth, vv = window.visualViewport, Hh = Math.round(vv && vv.height ? Math.min(vv.height, window.innerHeight) : window.innerHeight), p = content.fn;
-  CX = SP.cx.x; CY = Hh;
+  CX = SP.cx.x; CY = Hh - (K.dialY || 0);   // Settings → Knob · dial position: moves the dial up from the screen edge
   const a0 = SP.a0.x, a1 = SP.a1.x, idx = (a0 + a1) / 2, l2 = clamp(SP.l2.x, 0, 1.2), pr = clamp(SP.press.x, 0, 1.2);
   const stretch = clamp(Math.abs(SP.cx.v) / 3200, 0, 0.32), dir = Math.sign(SP.cx.v) || 1;
   // layer 2 open: middle ring shrinks and dims, outer ring grows in
@@ -225,7 +228,8 @@ function drawDial() {
   const span = a1 - a0, quarter = span < 135, leftQ = quarter && idx < 90;
   let cxI, cyI, anc = 'middle', lx, ly;
   if (!quarter) { [cxI, cyI] = pt(CX, CY, R.inner * 0.55, idx); lx = cxI; ly = cyI + 15; cyI -= 7; }
-  else { cxI = CX + (leftQ ? 28 : -28); cyI = CY - 44; lx = CX + (leftQ ? 8 : -8); ly = CY - 16; anc = leftQ ? 'start' : 'end'; }
+  else { const f = R.inner / 72; cxI = CX + (leftQ ? 28 : -28) * f; cyI = CY - 44 * f; lx = CX + (leftQ ? 8 : -8) * f; ly = CY - 16 * f; anc = leftQ ? 'start' : 'end'; }
+  const isz = (K.iconSize || 100) / 100;
   const fill = pr > 0.02 ? (content.flash && content.flash.on ? col : '#5a5f68') : '#1B1F24';
   const label = pr > 0.5 && content.flash ? content.flash.short : p.short;
   dial.innerHTML = `<svg width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}" aria-hidden="true">
@@ -235,15 +239,16 @@ function drawDial() {
       ${ring(content.main, SP.rot.x, m0, m1, a0, a1, idx, col, l2 > 0.05 ? 1 - 0.55 * Math.min(1, l2) : 1, l2 > 0.5)}
       ${l2 > 0.02 ? ring(content.second, SP.rot2.x, o0, o1, a0, a1, idx, col, Math.min(1, l2), false) : ''}
       <path d="${sector(CX, CY, 0, R.inner * (1 + pr * 0.08), a0, a1)}" style="fill:${fill}" class="kd-inner"/>
-      <text x="${cxI}" y="${cyI}" class="kd-ic">${content.na ? 'block' : pr > 0.5 && content.flash ? content.flash.icon : p.ic}</text>
-      <text x="${lx}" y="${ly}" class="kd-lbl" text-anchor="${anc}">${esc(label)}</text>
+      <text x="${cxI}" y="${cyI}" class="kd-ic" style="font-size:${26 * isz}px">${content.na ? 'block' : pr > 0.5 && content.flash ? content.flash.icon : p.ic}</text>
+      <text x="${lx}" y="${ly}" class="kd-lbl" text-anchor="${anc}" style="font-size:${12 * isz}px">${esc(label)}</text>
       ${tri}
     </g></svg>`;
 }
 const slotShape = z => {
   const n = active().length, W = window.innerWidth;
-  if (z === 0) return { cx: 0, a0: 0, a1: 90 };
-  if (z === n - 1) return { cx: W, a0: 90, a1: 180 };
+  const dx = K.dialX || 0;                                          // Settings → Knob · dial position: moves the corner dials inward
+  if (z === 0) return { cx: dx, a0: 0, a1: 90 };
+  if (z === n - 1) return { cx: W - dx, a0: 90, a1: 180 };
   return { cx: (z + 0.5) / n * W, a0: 0, a1: 180 };
 };
 const curFn = () => { const A = active(); if (zone == null || zone >= A.length) zone = Math.max(0, Math.min(zone ?? 0, A.length - 1)); return A[zone]; };
@@ -264,11 +269,13 @@ function showDial(kind, extra) {
   if (kind === 'na') showReason(extra); else if (kind !== 'arrive') hint.classList.remove('show');
   kick();
 }
+function preview() { if (zone == null) zone = 0; setTargets(slotShape(zone)); showDial('main'); snap(); drawDial(); }
 function hideDial() { if (travelling) return; visible = false; dial.classList.remove('show'); SP.l2.t = 0; kick(); }
 let hintT;
 function hintAt(html, col) {
   const n = active().length, W = window.innerWidth, x = zone === 0 ? 150 : zone === n - 1 ? W - 150 : (zone + 0.5) / n * W;
   hint.style.setProperty('--gc', col); hint.innerHTML = html;
+  hint.style.bottom = Math.round((K.dialY || 0) + R.o1 + 16) + 'px';
   hint.style.left = clamp(x, 268, W - 268) + 'px'; hint.classList.add('show');
   clearTimeout(hintT); hintT = setTimeout(() => hint.classList.remove('show'), 3000);
 }
@@ -487,6 +494,8 @@ H.extend({
     const named = [K.opt1, K.opt2].filter(Boolean).map(k => FN[k].n);
     return `
     <div class="srow"><div><div class="lbl">Knob · slots</div><div class="sub">Driver temp · ${named[0] && K.opt1 ? esc(FN[K.opt1].n) + ' · ' : ''}Media · ${K.opt2 ? esc(FN[K.opt2].n) + ' · ' : ''}Passenger temp</div></div><div class="seg"><button data-a="kcfg" data-v="">${H.state().car.moving ? 'Parked only' : 'Customize'}</button></div></div>
+    <div class="srow"><div><div class="lbl">Knob · dial position</div><div class="sub">Corner dials inward (→) and all dials up from the bottom edge (↑)</div></div><div class="rowr"><span class="sub">→</span>${stepper('kdx', (K.dialX || 0) + ' px')}<span class="sub">↑</span>${stepper('kdy', (K.dialY || 0) + ' px')}</div></div>
+    <div class="srow"><div><div class="lbl">Knob · dial size</div><div class="sub">Size of the dial and of its icon</div></div><div class="rowr"><span class="sub">Dial</span>${stepper('kds', (K.dialSize || 100) + '%')}<span class="sub">Icon</span>${stepper('kis', (K.iconSize || 100) + '%')}<div class="seg"><button data-a="kdreset" data-v="">Reset</button></div></div></div>
     <div class="srow"><div><div class="lbl">Knob · tutorial</div><div class="sub">Short lesson on the three gestures after the welcome screen</div></div>${seg('ktut', [['0', 'Off'], ['1', 'On']], K.tutorial ? '1' : '0')}<div class="seg"><button data-a="ktutnow" data-v="">Show now</button></div></div>
     <div class="srow"><div><div class="lbl">Knob · turn direction</div><div class="sub">Which way of turning raises the value</div></div>${seg('kinv', [['0', 'Normal'], ['1', 'Reversed']], K.invert ? '1' : '0')}</div>
     <div class="srow"><div><div class="lbl">Knob · notch size</div><div class="sub">Wheel distance for one step. Calibrate once per mouse</div></div><div class="rowr">${stepper('knotch', K.notch)}<div class="seg"><button data-a="kcal" data-v="">Calibrate</button></div></div></div>
@@ -494,6 +503,11 @@ H.extend({
   },
   actions: {
     kcfg() { CFG.open(); },
+    kdx(v) { if (guard()) return; K.dialX = clamp((K.dialX || 0) + (v === '+' ? 8 : -8), -80, 240); saveK(); preview(); },
+    kdy(v) { if (guard()) return; K.dialY = clamp((K.dialY || 0) + (v === '+' ? 8 : -8), -80, 400); saveK(); preview(); },
+    kds(v) { if (guard()) return; K.dialSize = clamp((K.dialSize || 100) + (v === '+' ? 10 : -10), 50, 200); saveK(); sizeR(); preview(); },
+    kis(v) { if (guard()) return; K.iconSize = clamp((K.iconSize || 100) + (v === '+' ? 10 : -10), 50, 250); saveK(); preview(); },
+    kdreset() { if (guard()) return; Object.assign(K, { dialX: 0, dialY: 0, dialSize: 100, iconSize: 100 }); saveK(); sizeR(); preview(); },
     ktut(v) { if (guard()) return; K.tutorial = v === '1'; saveK(); },
     ktutnow() { if (guard()) return; TUT.start(); },
     kinv(v) { if (guard()) return; K.invert = v === '1'; saveK(); },

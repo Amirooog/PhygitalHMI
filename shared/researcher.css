@@ -68,3 +68,10 @@
 #rflash { position: fixed; inset: 0; z-index: 500; background: #fff; opacity: 0; pointer-events: none; }
 #rflash.go { animation: rflash .25s ease-out; }
 @keyframes rflash { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+/* automatic session */
+#rp .rrun { min-height: 60px; font-size: 16px; }
+#rovl .rcd { color: #A6ABB2; font-size: 20px; }
+#rovl .rcd b { color: var(--acc, #4CC3E0); font-size: 28px; font-variant-numeric: tabular-nums; }
+#rovl .rstop { min-height: 44px; padding: 0 20px; border-radius: 22px; border: 1px solid rgba(242, 241, 238, .25); background: transparent; color: #A6ABB2; font: inherit; font-size: 15px; }
+#rovl .rgo.rsec { background: transparent; border: 1px solid rgba(242, 241, 238, .3); color: #F2F1EE; font-size: 18px; min-height: 60px; }

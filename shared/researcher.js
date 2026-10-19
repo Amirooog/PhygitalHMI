@@ -97,6 +97,30 @@ function nextCh5() {
   for (const k of TASKS.filter(x => x.ch5).sort((a, b) => a.ch5 - b.ch5)) if (repsDone(k.id) < k.reps) return k;
   return null;
 }
+/* automatic session: every Ch5 task and repetition in order for the selected participant in this app.
+   Each task: goal screen with a countdown (or Start) → trial → check mark → next goal … → "all done" screen. */
+let auto = false, cdT = null;
+if (SES.autoDelay == null) SES.autoDelay = 4;   // seconds the goal is shown before the trial starts (0 = wait for Start)
+/* while a goal screen is up, the knob must not change the car: block wheel and middle-button input */
+['wheel', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'auxclick'].forEach(t => window.addEventListener(t, e => {
+  if (ovl.hidden || (e.target.closest && e.target.closest('#rovl button'))) return;
+  if (t === 'wheel' || e.button === 1 || e.pointerType === 'mouse') { e.stopImmediatePropagation(); if (e.cancelable) e.preventDefault(); }
+}, { capture: true, passive: false }));
+function startSession() {
+  if (!pById(SES.participant) && !confirm('No participant selected. Run anyway?')) return;
+  const nx = nextCh5();
+  if (!nx) { alert('All Ch5 tasks are already done for this participant in this app.'); return; }
+  auto = true; startTask(nx.id);
+}
+function stopSession() { auto = false; clearTimeout(cdT); }
+function sessionDone() {
+  auto = false;
+  ovl.innerHTML = `<div class="rbox"><div class="rk">${esc(SES.participant || '')} · ${esc(H.app)}</div>
+      <div class="rq">All tasks are done. Thank you!</div>
+      <button class="rgo rsec" type="button">Back to the researcher</button></div>`;
+  ovl.hidden = false;
+  ovl.querySelector('.rgo').onclick = () => { ovl.hidden = true; openPanel(); };
+}
 const flash = document.createElement('div'); flash.id = 'rflash'; flash.setAttribute('aria-hidden', 'true'); document.body.appendChild(flash);
 function startTask(id) {
   const task = TASKS.find(x => x.id === id);
@@ -108,10 +132,14 @@ function startTask(id) {
       <div class="rk">${task.id} · ${task.lv}${task.reps ? ' · ' + rep + ' of ' + task.reps : ''}</div>
       <div class="rq">${esc(task.text)}</div>
       ${SES.occ.on ? '<div class="rn">The screen will go dark at intervals. Keep going.</div>' : ''}
+      ${auto && SES.autoDelay ? `<div class="rcd">Starts in <b>${SES.autoDelay}</b></div>` : ''}
       <button class="rgo" type="button">Start</button>
+      ${auto ? '<button class="rstop" type="button">Stop session</button>' : ''}
     </div>`;
   ovl.hidden = false;
-  ovl.querySelector('.rgo').onclick = () => {
+  clearTimeout(cdT);
+  const go = () => {
+    clearTimeout(cdT);
     ovl.hidden = true;
     flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go');   // white flash: syncs the video with the log
     const p = H.prefs();
@@ -123,6 +151,13 @@ function startTask(id) {
     H.lock.trial = true;
     if (SES.occ.on) { trial.occ = { open: true, openAt: performance.now(), tsot: 0, intervals: 1, touches: 0, o: SES.occ.open, c: SES.occ.closed, timer: null }; occCycle(); }
   };
+  ovl.querySelector('.rgo').onclick = go;
+  const st = ovl.querySelector('.rstop'); if (st) st.onclick = () => { stopSession(); ovl.hidden = true; openPanel(); };
+  if (auto && SES.autoDelay) {
+    let left = SES.autoDelay;
+    const tickCd = () => { const b = ovl.querySelector('.rcd b'); if (b) b.textContent = left; if (left <= 0) go(); else { left--; cdT = setTimeout(tickCd, 1000); } };
+    cdT = setTimeout(() => { left--; tickCd(); }, 1000);
+  }
 }
 function occCycle() {
   const o = trial && trial.occ; if (!o || !trial.running) return;
@@ -164,8 +199,13 @@ function finish(result) {
   if (result === 'success') {
     ovl.innerHTML = '<div class="rdone"><span class="ms" aria-hidden="true">check</span></div>';
     ovl.hidden = false; ovl.classList.add('pass');
-    setTimeout(() => { ovl.hidden = true; ovl.classList.remove('pass'); openPanel(); }, 950);
-  } else openPanel();
+    setTimeout(() => { ovl.hidden = true; ovl.classList.remove('pass'); continueOrPanel(); }, 950);
+  } else continueOrPanel();
+}
+function continueOrPanel() {
+  if (!auto) return openPanel();
+  const nx = nextCh5();
+  if (nx) setTimeout(() => { if (auto) startTask(nx.id); }, 400); else sessionDone();
 }
 setInterval(() => {
   if (!trial || !trial.running) return;
@@ -266,7 +306,9 @@ function renderPanel() {
         const nx = nextCh5(), busy = trial && trial.running;
         const row = k => { const d = repsDone(k.id); return `<div class="rtr"><span class="rc">${k.id}<small>${k.lv}</small></span><span class="rd">${esc(k.text)}${k.reps ? `<small class="rrep ${d >= k.reps ? 'ok' : ''}">${Math.min(d, k.reps)} of ${k.reps} done${d > k.reps ? ' (+' + (d - k.reps) + ' extra)' : ''}</small>` : ''}</span><button class="rb ${nx && nx.id === k.id ? 'a' : ''}" data-r="run" data-v="${k.id}" ${busy ? 'disabled' : ''}>Run ${k.reps ? (d + 1) : ''}</button></div>`; };
         return `<section><h4>Ch5 tasks · ${esc(SES.participant || 'no participant')} · ${esc(H.app)}</h4>
-          ${nx ? `<button class="rb a rnext" data-r="run" data-v="${nx.id}" ${busy ? 'disabled' : ''}>Next: ${nx.id} · ${esc(nx.text)} · ${repsDone(nx.id) + 1} of ${nx.reps}</button>` : '<p class="rnote">All Ch5 tasks done for this participant in this app.</p>'}
+          ${auto ? `<div class="rfr"><span class="rnote">Session running: tasks follow one another by themselves.</span><button class="rb x" data-r="stopses">Stop session</button></div>` : nx ? `<button class="rb a rrun" data-r="session" ${busy ? 'disabled' : ''}>▶ Run session · ${nx.id} → all remaining tasks</button>
+          <div class="rfr"><span class="rnote">Goal shown before each task for</span>${[0, 3, 4, 6].map(d => `<button class="rb ${SES.autoDelay === d ? 'a' : ''}" data-r="delay" data-v="${d}">${d ? d + ' s' : 'Tap Start'}</button>`).join('')}</div>
+          <button class="rb rnext" data-r="run" data-v="${nx.id}" ${busy ? 'disabled' : ''}>Run one: ${nx.id} · ${esc(nx.text)} · ${repsDone(nx.id) + 1} of ${nx.reps}</button>` : '<p class="rnote">All Ch5 tasks done for this participant in this app.</p>'}
           <div class="rtl">${TASKS.filter(k => k.ch5).sort((a, b) => a.ch5 - b.ch5).map(row).join('')}</div>
           <details class="rmore"><summary>Other tasks (not in the Ch5 run)</summary><div class="rtl">${TASKS.filter(k => !k.ch5).map(row).join('')}</div></details>
         </section>`;
@@ -316,6 +358,9 @@ rp.addEventListener('click', async e => {
   if (r === 'pexport') msgP(await shareCsv('phygitalhmi-participants-' + new Date().toISOString().slice(0, 10) + '.csv', pplCsv()));
   if (r === 'run') { if (!pById(SES.participant) && !confirm('No participant selected. Run anyway?')) return; startTask(v); }
   if (r === 'abort') finish('abandoned');
+  if (r === 'session') startSession();
+  if (r === 'stopses') { stopSession(); renderPanel(); }
+  if (r === 'delay') { SES.autoDelay = +v; saveSes(); renderPanel(); }
   if (r === 'assist' && trial) { trial.assisted = !trial.assisted; renderPanel(); }
   if (r === 'assistlast') { const last = LOG.all()[0]; if (last) { LOG.update(last.id, { assisted: last.assisted ? 0 : 1 }); renderPanel(); } }
   if (r === 'moving') { H.state().car.moving = v === '1'; H.render(); renderPanel(); }
