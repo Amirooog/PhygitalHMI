@@ -14,6 +14,9 @@ Rules
 - Freeze a build before data collection starts: `tools/freeze.sh <app>` copies it with shared/ to `releases/<id>/`; change nothing in a frozen build until collection ends (fixes get a new version).
 - Each app folder ships its `index.html` and `sw.js` together; the id in both must match.
 
+## SK-2.1.2 (19 Oct 2026, frozen)
+- Corner dials: the function icon and label now sit inside the visible part of the inner disc (they were cut off by the screen edge in the right corner). Both temperature positions read "Temp"; the dial is anchored to the visible bottom of the screen.
+
 ## SK-2.1.1 (19 Oct 2026, frozen)
 - The dial no longer follows the cursor inside a zone. Cursor jitter while turning moved the dial left and right; now the dial stays fixed at its slot and only travels (with the stretch and spring) when the knob crosses into another zone. Slightly wider hysteresis at the zone borders.
 

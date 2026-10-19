@@ -164,7 +164,7 @@ html.knob-nocursor, html.knob-nocursor * { cursor: none !important; }
 #kDial .kd-num.on { font-weight: 700; }
 #kDial .kd-inner { transition: fill .15s; }
 #kDial .kd-ic { fill: #fff; font-family: "Material Symbols Rounded"; font-size: 26px; text-anchor: middle; dominant-baseline: central; font-variation-settings: "FILL" 1, "wght" 400; }
-#kDial .kd-lbl { fill: #fff; font-family: var(--font-ui, system-ui), sans-serif; font-size: 12px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+#kDial .kd-lbl { fill: #fff; font-family: var(--font-ui, system-ui), sans-serif; font-size: 12px; font-weight: 600; dominant-baseline: central; }
 #kHint .kh-na { color: var(--tx); border-color: #F0605A; }
 #kHint .kh-na b { color: #F0605A; }
 #kHint { bottom: calc(6px + 190px); }

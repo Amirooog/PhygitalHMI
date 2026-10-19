@@ -52,7 +52,7 @@ function climate(side) {
   const d = side === 'L', on = d ? 'dOn' : 'pOn', t = d ? 'dT' : 'pT', fan = d ? 'fan' : 'fanP', seat = 'seat' + side, vent = 'vent' + side;
   const who = d ? 'Driver' : 'Passenger';
   return {
-    key: d ? 'driver' : 'passenger', n: who + ' temp', short: d ? 'Temp' : 'Pass. temp', ic: d ? 'thermostat' : 'airline_seat_recline_normal', col: d ? '#FF7A45' : '#5BD08A',
+    key: d ? 'driver' : 'passenger', n: who + ' temp', short: 'Temp', ic: d ? 'thermostat' : 'airline_seat_recline_normal', col: d ? '#FF7A45' : '#5BD08A',
     hints: [['Turn', 'Temperature'], ['Press', 'Seat heater'], ['Hold + turn', 'Fan']],
     turn(s, k) { const c = s.clim; c[on] = true; c[t] = clamp(c[t] + 0.5 * k, 16, 28); if (d && c.sync) c.pT = c.dT; if (!d) c.sync = false; },
     hturn(s, k) { const c = s.clim; c[on] = true; c.auto = false; c[fan] = clamp((c[fan] ?? c.fan) + k, 1, 7); },
@@ -211,7 +211,7 @@ function ring(list, rotF, r0, r1, a0, a1, idx, col, op, small) {
 let CX = 0, CY = 0;
 function drawDial() {
   if (!content) return;
-  const W = window.innerWidth, Hh = window.innerHeight, p = content.fn;
+  const W = window.innerWidth, vv = window.visualViewport, Hh = Math.round(vv && vv.height ? Math.min(vv.height, window.innerHeight) : window.innerHeight), p = content.fn;
   CX = SP.cx.x; CY = Hh;
   const a0 = SP.a0.x, a1 = SP.a1.x, idx = (a0 + a1) / 2, l2 = clamp(SP.l2.x, 0, 1.2), pr = clamp(SP.press.x, 0, 1.2);
   const stretch = clamp(Math.abs(SP.cx.v) / 3200, 0, 0.32), dir = Math.sign(SP.cx.v) || 1;
@@ -221,7 +221,11 @@ function drawDial() {
   const clip = sector(CX, CY, 0, R.o1 + 30, a0, a1);
   const [ix, iy] = pt(CX, CY, (l2 > 0.5 ? o1 : m1) + 12, idx);
   const tri = `<path d="M0,-9 L8,7 L-8,7 Z" class="kd-idx" style="fill:${col}" transform="translate(${ix} ${iy}) rotate(${270 - idx})"/>`;
-  const [cxI, cyI] = pt(CX, CY, R.inner * 0.55, idx);
+  // icon and label sit inside the visible part of the inner disc: in the corner quarters they hug the inner side
+  const span = a1 - a0, quarter = span < 135, leftQ = quarter && idx < 90;
+  let cxI, cyI, anc = 'middle', lx, ly;
+  if (!quarter) { [cxI, cyI] = pt(CX, CY, R.inner * 0.55, idx); lx = cxI; ly = cyI + 15; cyI -= 7; }
+  else { cxI = CX + (leftQ ? 28 : -28); cyI = CY - 44; lx = CX + (leftQ ? 8 : -8); ly = CY - 16; anc = leftQ ? 'start' : 'end'; }
   const fill = pr > 0.02 ? (content.flash && content.flash.on ? col : '#5a5f68') : '#1B1F24';
   const label = pr > 0.5 && content.flash ? content.flash.short : p.short;
   dial.innerHTML = `<svg width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}" aria-hidden="true">
@@ -231,8 +235,8 @@ function drawDial() {
       ${ring(content.main, SP.rot.x, m0, m1, a0, a1, idx, col, l2 > 0.05 ? 1 - 0.55 * Math.min(1, l2) : 1, l2 > 0.5)}
       ${l2 > 0.02 ? ring(content.second, SP.rot2.x, o0, o1, a0, a1, idx, col, Math.min(1, l2), false) : ''}
       <path d="${sector(CX, CY, 0, R.inner * (1 + pr * 0.08), a0, a1)}" style="fill:${fill}" class="kd-inner"/>
-      <text x="${cxI}" y="${cyI - 7}" class="kd-ic">${content.na ? 'block' : pr > 0.5 && content.flash ? content.flash.icon : p.ic}</text>
-      <text x="${cxI}" y="${cyI + 15}" class="kd-lbl">${esc(label)}</text>
+      <text x="${cxI}" y="${cyI}" class="kd-ic">${content.na ? 'block' : pr > 0.5 && content.flash ? content.flash.icon : p.ic}</text>
+      <text x="${lx}" y="${ly}" class="kd-lbl" text-anchor="${anc}">${esc(label)}</text>
       ${tri}
     </g></svg>`;
 }
