@@ -14,6 +14,12 @@ Rules
 - Freeze a build before data collection starts: `tools/freeze.sh <app>` copies it with shared/ to `releases/<id>/`; change nothing in a frozen build until collection ends (fixes get a new version).
 - Each app folder ships its `index.html` and `sw.js` together; the id in both must match.
 
+## SK-3.2.0 (20 Oct 2026, frozen)
+- **Zone count from the capacity formula (thesis Ch4):** N = min(N_physical, N_perceptual), N_physical = ⌊screen width ÷ minimum zone width⌋ (default 230 px), N_perceptual = 2k − 1 with k tactile landmarks on the rail (default 3 → 5). At least the 3 core positions. iPad (1180 px): min(5, 5) = 5. A wider screen raises N_physical; the count rises once the rail has more landmarks (e.g. 2560 px with k = 5 → 9 zones). Settings → Knob · zone capacity: min zone width and landmarks steppers, the formula live, and a "Show" badge; the badge also appears whenever a resize changes the count.
+- **Middle zones by priority**, filled from the centre outwards (1st centre, 2nd left, 3rd right…). Default priority: Media, Drive mode, Phone, Navigation, Airflow, Seat, Driver assist, Autopark, Ambient, Windows. The customization page shows as many zones as the screen allows.
+- **Temperature in whole degrees:** one notch = 1 °C (16–28). Task T1 (+2 degrees) is now 2 notches in SK3.
+- **Temperature pills sit at the far left and far right edges.**
+
 ## SK-3.1.0 (20 Oct 2026, frozen)
 From Amir's sketches of 20 Oct ("the SK circle becomes the navbar when changing a value").
 - **No bar behind the pills:** the screen runs to the bottom edge and five glass pills float on it (temperature pills stay circles in their temperature colour).

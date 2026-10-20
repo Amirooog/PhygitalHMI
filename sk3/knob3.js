@@ -11,7 +11,7 @@
    released with no turn in between, hold + turn = turning while the middle button is held.
 
    Gesture map                     turn                       press                     hold + turn
-     Driver / passenger temp       temperature 0.5 °C         seat heater               fan
+     Driver / passenger temp       temperature 1 °C (SK-3.2)  seat heater               fan
      Drive mode                    drive mode                 —                         stability control (Off only parked)
      Media                         volume                     play / pause              next / previous track
      Phone                         favourite contacts         call / end                —
@@ -29,7 +29,7 @@ if (!H) return;
 
 /* ---------- settings (per device) ---------- */
 const KEY = 'phmi.knob3';
-const K = Object.assign({ notch: 185, invert: false, hideCursor: true, blockClicks: true, tutorial: false, s1: 'drive', s2: 'media', s3: 'phone', dialX: 0, dialY: 0, dialSize: 100, iconSize: 100 },
+const K = Object.assign({ notch: 185, invert: false, hideCursor: true, blockClicks: true, tutorial: false, pri: null, zoneW: 230, marks: 3, dialX: 0, dialY: 0, dialSize: 100, iconSize: 100 },
   (() => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } })());
 const saveK = () => { try { localStorage.setItem(KEY, JSON.stringify(K)); } catch (e) { /* memory only */ } };
 const LOCK_MS = 350, BURST_GAP = 150;
@@ -38,7 +38,7 @@ const msI = n => `<span class="ms" aria-hidden="true">${n}</span>`;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const tf = v => v <= 16 ? 'LO' : v >= 28 ? 'HI' : (v % 1 ? v.toFixed(1) : String(v)) + '°';
-const TEMPS = []; for (let v = 16; v <= 28; v += 0.5) TEMPS.push(tf(v));
+const TEMPS = []; for (let v = 16; v <= 28; v += 1) TEMPS.push(tf(v));   // whole degrees only (SK-3.2)
 const FAN = ['1', '2', '3', '4', '5', '6', '7'];
 const VOLS = Array.from({ length: 31 }, (_, i) => String(i));
 const D = H.data;
@@ -74,10 +74,10 @@ function climate(side) {
       return `<b>${c[t] <= 16 ? 'LO' : c[t] >= 28 ? 'HI' : (c[t] % 1 ? c[t].toFixed(1) : c[t])}<sup>°</sup></b><small>${c[seat] ? msI('local_fire_department') : ''}FAN ${c[fan] ?? c.fan}</small>`;
     },
     hints: [['Turn', 'Temperature'], ['Press', 'Seat heater'], ['Hold + turn', 'Fan']],
-    turn(s, k) { const c = s.clim; c[on] = true; c[t] = clamp(c[t] + 0.5 * k, 16, 28); if (d && c.sync) c.pT = c.dT; if (!d) c.sync = false; },
+    turn(s, k) { const c = s.clim; c[on] = true; c[t] = clamp(Math.round(c[t]) + k, 16, 28); if (d && c.sync) c.pT = c.dT; if (!d) c.sync = false; },
     hturn(s, k) { const c = s.clim; c[on] = true; c.auto = false; c[fan] = clamp((c[fan] ?? c.fan) + k, 1, 7); },
     press(s) { const c = s.clim; if (c[seat]) c[seat] = 0; else { c[seat] = 3; c[vent] = 0; } return { icon: 'local_fire_department', on: !!c[seat], short: c[seat] ? 'On' : 'Off', label: 'Seat heater ' + (c[seat] ? 'on' : 'off') }; },
-    main: s => ({ id: 'temp', head: who + ' temperature', items: TEMPS, cur: Math.round((s.clim[t] - 16) * 2) }),
+    main: s => ({ id: 'temp', head: who + ' temperature', items: TEMPS, cur: Math.round(s.clim[t]) - 16 }),
     second: s => ({ id: 'fan', head: who + ' fan', ic: 'mode_fan', items: FAN, cur: (s.clim[fan] ?? s.clim.fan) - 1 })
   };
 }
@@ -241,14 +241,28 @@ const FN = {
   }
 };
 const OPTIONAL = ['drive', 'media', 'phone', 'nav', 'park', 'adas', 'amb', 'air', 'win', 'seat'];
-const fixSlots = () => {   // three distinct, known functions
-  const used = [];
-  ['s1', 's2', 's3'].forEach((k, i) => { if (!FN[K[k]] || !OPTIONAL.includes(K[k]) || used.includes(K[k])) K[k] = ['drive', 'media', 'phone', 'nav', 'park'].find(f => !used.includes(f)); used.push(K[k]); });
-};
+/* ---------- zone capacity (thesis 4-4, Ch4 capacity formula) ----------
+   N = min(N_physical, N_perceptual)
+     N_physical   = ⌊ screen width ÷ minimum zone width ⌋   (the screen version of rail length ÷ position spacing)
+     N_perceptual = 2k − 1, k = tactile landmarks on the rail (ends + middle bump = 3 → 5): every position is on a
+                    landmark or one step away from one
+   Never fewer than the 3 core positions. Wider screen → more zones, as long as the rail has the landmarks for them.
+   Middle zones are filled by priority from the centre outwards: 1st in the centre, 2nd left of it, 3rd right, … */
+const DEF_PRI = ['media', 'drive', 'phone', 'nav', 'air', 'seat', 'adas', 'park', 'amb', 'win'];
+if (!Array.isArray(K.pri)) K.pri = K.s2 ? [K.s2, K.s1, K.s3] : DEF_PRI.slice();   // from SK-3.0/3.1 (three fixed slots)
+delete K.s1; delete K.s2; delete K.s3;
+const fixSlots = () => { const seen = new Set(); K.pri = K.pri.filter(k => OPTIONAL.includes(k) && !seen.has(k) && seen.add(k)); DEF_PRI.forEach(k => { if (!seen.has(k)) K.pri.push(k); }); };
 fixSlots();
-const slots = () => ['driver', K.s1, K.s2, K.s3, 'passenger'];
+function capacity(W = window.innerWidth) {
+  const zw = K.zoneW || 230, k = K.marks || 3;
+  const phys = Math.floor(W / zw), perc = 2 * k - 1;
+  return { W: Math.round(W), zw, k, phys, perc, n: clamp(Math.min(phys, perc), 3, 2 + OPTIONAL.length) };
+}
+const centreOrder = m => { const c = Math.floor((m - 1) / 2), o = [c]; for (let d = 1; o.length < m; d++) { if (c - d >= 0) o.push(c - d); if (o.length < m && c + d < m) o.push(c + d); } return o; };
+const arrange = list => { const out = new Array(list.length); centreOrder(list.length).forEach((pos, i) => { out[pos] = list[i]; }); return out; };
+let NZ = capacity().n;
+const slots = () => ['driver', ...arrange(K.pri.slice(0, NZ - 2)), 'passenger'];
 const active = () => slots().map(k => FN[k]);
-const NZ = 5;
 const colOf = (p, s) => p.colF ? p.colF(s || H.state()) : p.col;
 
 /* ---------- zone bar: five floating pills over the five knob zones (no bar behind them) ----------
@@ -256,8 +270,10 @@ const colOf = (p, s) => p.colF ? p.colF(s || H.state()) : p.col;
 let zone = null, lit = false, litT;
 let dialZone = null, pushing = false;   // dialZone: the pill that is open as the dial (hidden); pushing: neighbours minimized
 const MINI = 54, GAP = 10;
+const EDGE = 16;
+const natX = i => { const W = window.innerWidth; return i === 0 ? EDGE + 40 : i === NZ - 1 ? W - EDGE - 40 : zoneX(i); };   // temperature pills sit at the far ends
 function pillX() {
-  const W = window.innerWidth, xs = Array.from({ length: NZ }, (_, i) => zoneX(i));
+  const W = window.innerWidth, xs = Array.from({ length: NZ }, (_, i) => natX(i));
   if (!pushing || dialZone == null) return xs;
   const sh = slotShape(dialZone), ext = (R.o1 + 8) + GAP;
   const lo = sh.a1 - sh.a0 < 135 ? (sh.a0 === 0 ? -1e9 : sh.cx - ext) : sh.cx - ext;
@@ -270,11 +286,11 @@ function pillX() {
 }
 function paintBar(s) {
   const bar = document.getElementById('bar');
-  if (!bar.querySelector('.zb3')) bar.innerHTML = `<div class="zb3">${active().map((_, i) => `<button class="zp" data-i="${i}" type="button"><span class="zp-in"></span></button>`).join('')}</div>`;
+  if (bar.querySelectorAll('.zb3 .zp').length !== NZ) bar.innerHTML = `<div class="zb3">${active().map((_, i) => `<button class="zp" data-i="${i}" type="button"><span class="zp-in"></span></button>`).join('')}</div>`;
   const A = active(), xs = pillX();
   bar.querySelectorAll('.zp').forEach((el, i) => {
     const p = A[i], on = p.temp ? s.clim[p.key === 'driver' ? 'dOn' : 'pOn'] : true, col = colOf(p, s);
-    el.style.left = Math.round(xs[i]) + 'px';
+    el.style.left = Math.round(xs[i]) + 'px'; el.style.maxWidth = Math.round(window.innerWidth / NZ - 18) + 'px';
     const cls = 'zp' + (p.temp ? ' tp' : '') + (p.temp && !on ? ' off' : '') + (i === dialZone ? ' gone' : pushing && dialZone != null ? ' mini' : i === zone && lit ? ' act' : '');
     if (el.className !== cls) el.className = cls;
     el.dataset.a = p.go[0]; el.dataset.v = p.go[1];
@@ -412,7 +428,7 @@ const bottomY = () => { const vv = window.visualViewport; return Math.round(vv &
 function pillAt(z) {   // where the pill rests (centre and radius), so the dial can grow out of it and shrink back into it
   const el = document.querySelector(`#bar .zp[data-i="${z}"]`), b = document.getElementById('bar').getBoundingClientRect();
   const h = el ? el.offsetHeight : 68;
-  return { x: zoneX(z), y: b.top + b.height / 2, r: h / 2 };
+  return { x: natX(z), y: b.top + b.height / 2, r: h / 2 };
 }
 const CIRCLE = { a0: -89.9, a1: 269.9 };   // the pill as a full disc: the start and end shape of the morph
 function showDial(kind, extra) {
@@ -459,7 +475,22 @@ function hintAt(html, col) {
 }
 function showHints() { const p = curFn(); hintAt(`<span class="kh-n">${msI(p.ic)}${esc(p.n)}</span>` + p.hints.map(([g, a]) => `<span><b>${g}</b> ${a}</span>`).join(''), colOf(p)); }
 function showReason(na) { hintAt(`<span class="kh-na"><b>${esc(na.item)}</b> ${esc(na.reason)}</span>`, '#F0605A'); }
-window.addEventListener('resize', () => { if (visible && !closing) { setTargets(slotShape(zone)); SP.cy.t = bottomY(); snap(); drawDial(); } paintBar(H.state()); });
+function recount(show) {
+  const c = capacity();
+  if (c.n !== NZ) { if (visible) finishClose(); NZ = c.n; zone = null; H.render(); if (show) showCap(c); return true; }
+  return false;
+}
+let capT;
+const capEl = document.createElement('div'); capEl.id = 'kCap'; capEl.setAttribute('role', 'status'); document.body.appendChild(capEl);
+function showCap(c = capacity()) {   // the formula, live: for showing on a wider screen how the zone count grows
+  capEl.innerHTML = `<b>${c.n} zones</b><span>N = min(⌊${c.W} ÷ ${c.zw}⌋, 2×${c.k} − 1) = min(${c.phys}, ${c.perc}) = ${c.n}</span><small>screen width ÷ minimum zone width · tactile landmarks on the rail</small>`;
+  capEl.classList.add('show'); clearTimeout(capT); capT = setTimeout(() => capEl.classList.remove('show'), 4000);
+}
+window.addEventListener('resize', () => {
+  if (recount(true)) return;
+  if (visible && !closing) { setTargets(slotShape(zone)); SP.cy.t = bottomY(); snap(); drawDial(); }
+  paintBar(H.state());
+});
 
 /* ---------- run one gesture on the selected zone ---------- */
 function fire(g, k) {
@@ -607,46 +638,46 @@ const TUT = (() => {
 const startTut = () => { if (K.tutorial) TUT.start(); };
 if (window.PHMI_BOOTED) setTimeout(startTut, 200); else window.addEventListener('phmi:booted', startTut, { once: true });
 
-/* ---------- customization page: the three middle zones (parked only) ---------- */
+/* ---------- customization page: the middle zones (parked only); their number comes from the capacity formula ---------- */
 const CFG = (() => {
   const el = document.createElement('div'); el.id = 'kCfg'; el.hidden = true; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Customize the knob zones');
   document.body.appendChild(el);
-  let draft = null, pick = null, watch;
-  const card = (slot, i) => {
-    const fixed = i === 0 || i === 4;
-    if (fixed) { const f = FN[slot]; return `<div class="cf-slot fixed" style="--gc:#C9CDD3">${msI(f.ic)}<b>${esc(f.n)}</b><small>${msI('lock')}Always here</small></div>`; }
-    const f = FN[draft[slot]];
-    return `<button class="cf-slot opt set ${pick === slot ? 'pick' : ''}" data-slot="${slot}" style="--gc:${f.col}">${msI(f.ic)}<b>${esc(f.n)}</b><small>Zone ${i + 1} · tap to change</small></button>`;
+  let draft = null, pick = null, watch;   // draft: priority list; pick: display index of the zone being changed
+  const m = () => NZ - 2;
+  const priIdx = j => centreOrder(m()).indexOf(j);   // display slot j (0-based among the middle zones) → index in the priority list
+  const card = (i) => {
+    if (i === 0 || i === NZ - 1) { const f = FN[i === 0 ? 'driver' : 'passenger']; return `<div class="cf-slot fixed" style="--gc:#C9CDD3">${msI(f.ic)}<b>${esc(f.n)}</b><small>${msI('lock')}Always here</small></div>`; }
+    const j = i - 1, f = FN[draft[priIdx(j)]];
+    return `<button class="cf-slot opt set ${pick === j ? 'pick' : ''}" data-slot="${j}" style="--gc:${f.col}">${msI(f.ic)}<b>${esc(f.n)}</b><small>Zone ${i + 1} · tap to change</small></button>`;
   };
   const draw = () => {
-    const order = ['driver', 's1', 's2', 's3', 'passenger'];
-    const others = pick ? ['s1', 's2', 's3'].filter(k => k !== pick).map(k => draft[k]) : [];
+    const shown = draft.slice(0, m()), mine = pick == null ? null : draft[priIdx(pick)], c = capacity();
     el.innerHTML = `<div class="cf-card">
-      <header><h2>Customize the knob zones</h2><span>The two temperature zones are fixed. Choose a function for each of the three zones between them.</span></header>
-      <div class="cf-rail">${order.map(card).join('')}</div>
+      <header><h2>Customize the knob zones</h2><span>The two temperature zones are fixed. This screen has room for ${NZ} zones (N = min(${c.phys}, ${c.perc})), so choose ${m()} function${m() > 1 ? 's' : ''} for the zones between them.</span></header>
+      <div class="cf-rail" style="grid-template-columns:repeat(${NZ}, minmax(0, 1fr))">${Array.from({ length: NZ }, (_, i) => card(i)).join('')}</div>
       <div class="cf-track"></div>
-      ${pick ? `<div class="cf-list"><span>Zone ${order.indexOf(pick) + 1}:</span>${OPTIONAL.map(k => `<button class="${draft[pick] === k ? 'on' : ''}" data-fn="${k}" ${others.includes(k) ? 'disabled' : ''}>${msI(FN[k].ic)}${esc(FN[k].n)}</button>`).join('')}</div>` : '<p class="cf-note">Tap a middle zone to choose its function. Each function can be in one zone only.</p>'}
+      ${pick != null ? `<div class="cf-list"><span>Zone ${pick + 2}:</span>${OPTIONAL.map(k => `<button class="${mine === k ? 'on' : ''}" data-fn="${k}" ${shown.includes(k) && k !== mine ? 'disabled' : ''}>${msI(FN[k].ic)}${esc(FN[k].n)}</button>`).join('')}</div>` : '<p class="cf-note">Tap a middle zone to choose its function. Each function can be in one zone only.</p>'}
       <footer><button class="cf-btn" data-c="cancel">Cancel</button><button class="cf-btn pri" data-c="save">Save</button></footer>
       <p class="cf-note">Changes are possible only while the car is parked.</p></div>`;
   };
   const close = () => { el.hidden = true; clearInterval(watch); draft = null; pick = null; };
   el.addEventListener('click', e => {
     const s = e.target.closest('[data-slot]'), f = e.target.closest('[data-fn]'), c = e.target.closest('[data-c]');
-    if (s) { pick = pick === s.dataset.slot ? null : s.dataset.slot; draw(); }
-    if (f && !f.disabled) { draft[pick] = f.dataset.fn; pick = null; draw(); }
+    if (s) { const j = +s.dataset.slot; pick = pick === j ? null : j; draw(); }
+    if (f && !f.disabled) { const a = priIdx(pick), b = draft.indexOf(f.dataset.fn); [draft[a], draft[b]] = [draft[b], draft[a]]; pick = null; draw(); }
     if (c && c.dataset.c === 'cancel') close();
     if (c && c.dataset.c === 'save') {
       if (H.state().car.moving) { close(); H.toast('lock', 'Car is moving: zones unchanged'); return; }
-      Object.assign(K, draft); fixSlots(); saveK(); close();
+      K.pri = draft; fixSlots(); saveK(); close();
       if (visible) finishClose(); zone = null; H.render(); H.toast('tune', 'Knob zones saved');
-      trace('config:' + [K.s1, K.s2, K.s3].join(','));
+      trace('config:' + slots().slice(1, -1).join(','));
     }
   });
   return {
     open() {
       if (H.locked()) return H.toast('lock', 'Knob settings are locked during the test');
       if (H.state().car.moving) return H.toast('lock', 'Customize the knob only while parked');
-      draft = { s1: K.s1, s2: K.s2, s3: K.s3 }; pick = null; draw(); el.hidden = false;
+      draft = K.pri.slice(); pick = null; draw(); el.hidden = false;
       clearInterval(watch); watch = setInterval(() => { if (H.state().car.moving) { close(); H.toast('lock', 'Car started moving: closed, zones unchanged'); } }, 300);
     }
   };
@@ -670,7 +701,8 @@ H.extend({
   home: home3,
   railEnd,
   settings: () => `
-    <div class="srow"><div><div class="lbl">Knob · zones</div><div class="sub">Driver temp · ${esc(FN[K.s1].n)} · ${esc(FN[K.s2].n)} · ${esc(FN[K.s3].n)} · Passenger temp</div></div><div class="seg"><button data-a="kcfg" data-v="">${H.state().car.moving ? 'Parked only' : 'Customize'}</button></div></div>
+    <div class="srow"><div><div class="lbl">Knob · zones</div><div class="sub">${active().map(f => esc(f.n)).join(' · ')}</div></div><div class="seg"><button data-a="kcfg" data-v="">${H.state().car.moving ? 'Parked only' : 'Customize'}</button></div></div>
+    ${(c => `<div class="srow"><div><div class="lbl">Knob · zone capacity</div><div class="sub">N = min(⌊${c.W} ÷ ${c.zw}⌋, 2×${c.k} − 1) = min(${c.phys}, ${c.perc}) = <b>${c.n} zones</b> · screen width ÷ minimum zone width, tactile landmarks on the rail</div></div><div class="rowr"><span class="sub">Min zone</span>${stepper('kzw', c.zw + ' px')}<span class="sub">Landmarks</span>${stepper('kmk', c.k)}<div class="seg"><button data-a="kcap" data-v="">Show</button></div></div></div>`)(capacity())}
     <div class="srow"><div><div class="lbl">Knob · dial position</div><div class="sub">Corner dials inward (→) and all dials up from the zone bar (↑)</div></div><div class="rowr"><span class="sub">→</span>${stepper('kdx', (K.dialX || 0) + ' px')}<span class="sub">↑</span>${stepper('kdy', (K.dialY || 0) + ' px')}</div></div>
     <div class="srow"><div><div class="lbl">Knob · dial size</div><div class="sub">Size of the dial and of its icon</div></div><div class="rowr"><span class="sub">Dial</span>${stepper('kds', (K.dialSize || 100) + '%')}<span class="sub">Icon</span>${stepper('kis', (K.iconSize || 100) + '%')}<div class="seg"><button data-a="kdreset" data-v="">Reset</button></div></div></div>
     <div class="srow"><div><div class="lbl">Knob · tutorial</div><div class="sub">Short lesson on the three gestures after the welcome screen</div></div>${seg('ktut', [['0', 'Off'], ['1', 'On']], K.tutorial ? '1' : '0')}<div class="seg"><button data-a="ktutnow" data-v="">Show now</button></div></div>
@@ -679,6 +711,9 @@ H.extend({
     <div class="srow"><div><div class="lbl">Knob · mouse</div><div class="sub">Hide the cursor and ignore mouse clicks, so only slide, turn and press count</div></div>${seg('kmouse', [['1', 'Knob only'], ['0', 'Normal mouse']], K.blockClicks ? '1' : '0')}</div>`,
   actions: {
     kcfg() { CFG.open(); },
+    kzw(v) { if (guard()) return; K.zoneW = clamp((K.zoneW || 230) + (v === '+' ? 10 : -10), 120, 600); saveK(); recount(); showCap(); },
+    kmk(v) { if (guard()) return; K.marks = clamp((K.marks || 3) + (v === '+' ? 1 : -1), 2, 6); saveK(); recount(); showCap(); },
+    kcap() { showCap(); },
     kdx(v) { if (guard()) return; K.dialX = clamp((K.dialX || 0) + (v === '+' ? 8 : -8), -80, 240); saveK(); preview(); },
     kdy(v) { if (guard()) return; K.dialY = clamp((K.dialY || 0) + (v === '+' ? 8 : -8), -120, 400); saveK(); preview(); },
     kds(v) { if (guard()) return; K.dialSize = clamp((K.dialSize || 100) + (v === '+' ? 10 : -10), 50, 200); saveK(); sizeR(); preview(); },

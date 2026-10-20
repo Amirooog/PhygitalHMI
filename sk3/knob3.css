@@ -228,3 +228,13 @@ html.knob-nocursor, html.knob-nocursor * { cursor: none !important; }
 .home3 .car { left: calc(594px + (100% - 594px) / 2 - 36px); }
 #rail .lock.home3b.on { background: var(--acc); color: #0B0C0E; }
 #rail .lock.home3b .ms { font-variation-settings: "FILL" 1, "wght" 400; }
+
+/* capacity formula badge (SK-3.2): shown when the zone count changes with the screen width, or from Settings */
+#kCap { position: fixed; left: 50%; top: calc(var(--safe-top) + 24px); z-index: 320; transform: translate(-50%, -12px); opacity: 0; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 24px; border-radius: 24px; text-align: center;
+  background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-edge); box-shadow: var(--glass-shadow);
+  transition: opacity .25s, transform .3s cubic-bezier(.3, 1.4, .5, 1); }
+#kCap.show { opacity: 1; transform: translate(-50%, 0); }
+#kCap b { font-size: 26px; font-weight: 600; color: var(--acc); }
+#kCap span { font-size: 18px; font-variant-numeric: tabular-nums; color: var(--tx); }
+#kCap small { font-size: 13px; color: var(--tx2); }

@@ -1,0 +1,42 @@
+/* start-up animation (boot.js) */
+#boot {
+  position: fixed; inset: 0; z-index: 400; background: #050607; color: #F2F1EE;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  font-family: var(--font-ui, system-ui), sans-serif; transition: opacity .5s ease;
+  --acc-b: var(--acc, #4CC3E0);
+}
+#boot.out { opacity: 0; pointer-events: none; }
+#boot .b-logo { width: 300px; height: 150px; overflow: visible; }
+#boot .b-rail { stroke: rgba(242, 241, 238, .55); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 200; stroke-dashoffset: 200; }
+#boot .b-gates line { stroke: rgba(242, 241, 238, .3); stroke-width: 2; stroke-linecap: round; opacity: 0; }
+#boot .b-knob { fill: var(--acc-b); filter: drop-shadow(0 0 10px var(--acc-b)); transform: translateX(-100px); opacity: 0; }
+#boot .b-ring { fill: none; stroke: var(--acc-b); stroke-width: 2; opacity: 0; transform-origin: 120px 60px; }
+#boot .b-word { font-size: 13px; font-weight: 600; letter-spacing: .9em; margin-right: -.9em; color: rgba(242, 241, 238, .55); opacity: 0; }
+#boot .b-hello { display: flex; flex-direction: column; align-items: center; gap: 4px; opacity: 0; transform: translateY(10px); }
+#boot .b-hello b { font-size: 40px; font-weight: 300; letter-spacing: -.01em; }
+#boot .b-hello span { font-size: 18px; color: rgba(242, 241, 238, .6); }
+#boot .b-info { font-size: 15px; color: rgba(242, 241, 238, .45); font-variant-numeric: tabular-nums; opacity: 0; }
+
+#boot.go .b-rail { animation: b-draw .7s .15s cubic-bezier(.4, 0, .2, 1) forwards; }
+#boot.go .b-gates line { animation: b-fade .3s forwards; }
+#boot.go .b-gates line:nth-child(1) { animation-delay: .55s; }
+#boot.go .b-gates line:nth-child(2) { animation-delay: .62s; }
+#boot.go .b-gates line:nth-child(3) { animation-delay: .69s; }
+#boot.go .b-gates line:nth-child(4) { animation-delay: .76s; }
+#boot.go .b-gates line:nth-child(5) { animation-delay: .83s; }
+#boot.go .b-knob { animation: b-slide .9s .7s cubic-bezier(.2, .8, .2, 1) forwards; }
+#boot.go .b-ring { animation: b-pulse 1s 1.5s ease-out forwards; }
+#boot.go .b-word { animation: b-fade .6s 1.45s forwards; }
+#boot.go .b-hello { animation: b-up .6s 1.8s cubic-bezier(.2, .8, .2, 1) forwards; }
+#boot.go .b-info { animation: b-fade .6s 2.2s forwards; }
+
+@keyframes b-draw { to { stroke-dashoffset: 0; } }
+@keyframes b-fade { to { opacity: 1; } }
+@keyframes b-slide { 0% { opacity: 0; transform: translateX(-100px); } 15% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+@keyframes b-pulse { 0% { opacity: .9; transform: scale(.6); } 100% { opacity: 0; transform: scale(2.6); } }
+@keyframes b-up { to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  #boot .b-rail { stroke-dashoffset: 0; }
+  #boot .b-gates line, #boot .b-knob, #boot .b-word, #boot .b-hello, #boot .b-info { opacity: 1; transform: none; animation: none !important; }
+}
