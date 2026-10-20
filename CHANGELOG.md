@@ -14,6 +14,14 @@ Rules
 - Freeze a build before data collection starts: `tools/freeze.sh <app>` copies it with shared/ to `releases/<id>/`; change nothing in a frozen build until collection ends (fixes get a new version).
 - Each app folder ships its `index.html` and `sw.js` together; the id in both must match.
 
+## SK-3.1.0 (20 Oct 2026, frozen)
+From Amir's sketches of 20 Oct ("the SK circle becomes the navbar when changing a value").
+- **No bar behind the pills:** the screen runs to the bottom edge and five glass pills float on it (temperature pills stay circles in their temperature colour).
+- **Slide** only highlights the pill under the knob (it grows a little) and shows the gesture hints. The dial no longer opens on arrival.
+- **Turn, press or hold + turn: the pill morphs into the dial.** It grows out of the pill onto the bottom edge (full disc → quarter circle in the corners, half circle in the middle) with the SK2 rings, marker and spring motion. The other pills slide aside and shrink to their icon (temperature pills keep their value). About 2 s after the last action the dial shrinks back into its pill and the neighbours return.
+- **Inner disc:** temperature zones show the temperature on the temperature colour; all other zones show only their icon (no label).
+- Gestures, zones and task paths are unchanged from SK-3.0.0.
+
 ## SK-3.0.0 (20 Oct 2026, frozen) — new app line SK3
 Redesign after the 19 Oct test (TB → SK1 → SK2, 8 participants), from Amir's wireframe of 20 Oct.
 - **Zone bar replaces the dock and the climate bar.** Five pills sit over the five knob zones (equal fifths of the screen): Driver temp · zone 2 · zone 3 · zone 4 · Passenger temp. Pills show live values; the active pill grows and lifts. Tapping a pill opens its page (touch still works).

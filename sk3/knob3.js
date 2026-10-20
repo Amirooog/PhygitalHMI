@@ -251,15 +251,31 @@ const active = () => slots().map(k => FN[k]);
 const NZ = 5;
 const colOf = (p, s) => p.colF ? p.colF(s || H.state()) : p.col;
 
-/* ---------- zone bar: five pills over the five knob zones ---------- */
+/* ---------- zone bar: five floating pills over the five knob zones (no bar behind them) ----------
+   While a pill is open as the dial, the other pills slide aside and shrink to their icon (sketch 20 Oct). */
 let zone = null, lit = false, litT;
+let dialZone = null, pushing = false;   // dialZone: the pill that is open as the dial (hidden); pushing: neighbours minimized
+const MINI = 54, GAP = 10;
+function pillX() {
+  const W = window.innerWidth, xs = Array.from({ length: NZ }, (_, i) => zoneX(i));
+  if (!pushing || dialZone == null) return xs;
+  const sh = slotShape(dialZone), ext = (R.o1 + 8) + GAP;
+  const lo = sh.a1 - sh.a0 < 135 ? (sh.a0 === 0 ? -1e9 : sh.cx - ext) : sh.cx - ext;
+  const hi = sh.a1 - sh.a0 < 135 ? (sh.a0 === 0 ? sh.cx + ext : 1e9) : sh.cx + ext;
+  let edge = lo;
+  for (let i = dialZone - 1; i >= 0; i--) { xs[i] = Math.max(MINI / 2 + 8, Math.min(xs[i], edge - MINI / 2)); edge = xs[i] - MINI / 2 - GAP; }
+  edge = hi;
+  for (let i = dialZone + 1; i < NZ; i++) { xs[i] = Math.min(W - MINI / 2 - 8, Math.max(xs[i], edge + MINI / 2)); edge = xs[i] + MINI / 2 + GAP; }
+  return xs;
+}
 function paintBar(s) {
   const bar = document.getElementById('bar');
   if (!bar.querySelector('.zb3')) bar.innerHTML = `<div class="zb3">${active().map((_, i) => `<button class="zp" data-i="${i}" type="button"><span class="zp-in"></span></button>`).join('')}</div>`;
-  const A = active();
+  const A = active(), xs = pillX();
   bar.querySelectorAll('.zp').forEach((el, i) => {
     const p = A[i], on = p.temp ? s.clim[p.key === 'driver' ? 'dOn' : 'pOn'] : true, col = colOf(p, s);
-    const cls = 'zp' + (p.temp ? ' tp' : '') + (p.temp && !on ? ' off' : '') + (i === zone && lit ? ' act' : '');
+    el.style.left = Math.round(xs[i]) + 'px';
+    const cls = 'zp' + (p.temp ? ' tp' : '') + (p.temp && !on ? ' off' : '') + (i === dialZone ? ' gone' : pushing && dialZone != null ? ' mini' : i === zone && lit ? ' act' : '');
     if (el.className !== cls) el.className = cls;
     el.dataset.a = p.go[0]; el.dataset.v = p.go[1];
     el.setAttribute('aria-label', p.n);
@@ -293,18 +309,20 @@ const hint = document.createElement('div'); hint.id = 'kHint'; hint.setAttribute
 document.body.append(dial, hint);
 
 const spring = x => ({ x, v: 0, t: x });
-const SP = { cx: spring(0), a0: spring(0), a1: spring(180), rot: spring(0), rot2: spring(0), l2: spring(0), press: spring(0) };
+const SP = { cx: spring(0), cy: spring(0), a0: spring(0), a1: spring(180), op: spring(0), rot: spring(0), rot2: spring(0), l2: spring(0), press: spring(0) };
+let closing = false, s0 = 0.5;   // s0: pill size / dial inner disc size, the scale the morph starts from
 let raf = 0, lastT = 0, visible = false, hideT, content = null;
 function animate(now) {
   const dt = Math.min(0.032, (now - (lastT || now)) / 1000 || 0.016); lastT = now;
   let moving = false;
   for (const k in SP) {
-    const s = SP[k], stiff = k === 'cx' ? 210 : k === 'l2' || k === 'press' ? 260 : 190, damp = k === 'cx' ? 19 : 22;
+    const s = SP[k], stiff = k === 'cx' || k === 'cy' ? 210 : k === 'l2' || k === 'press' ? 260 : k === 'op' ? 230 : 190, damp = k === 'cx' || k === 'cy' ? 21 : 22;
     const a = stiff * (s.t - s.x) - damp * s.v;
     s.v += a * dt; s.x += s.v * dt;
     if (Math.abs(s.t - s.x) > 0.01 || Math.abs(s.v) > 0.01) moving = true; else { s.x = s.t; s.v = 0; }
   }
-  drawDial();
+  if (closing && SP.op.x < 0.06 && SP.op.t === 0) { finishClose(); moving = false; }
+  else drawDial();
   raf = moving ? requestAnimationFrame(animate) : 0;
   if (!moving) lastT = 0;
 }
@@ -344,35 +362,42 @@ let CX = 0, CY = 0;
 function drawDial() {
   if (!content) return;
   const W = window.innerWidth, vv = window.visualViewport, Hh = Math.round(vv && vv.height ? Math.min(vv.height, window.innerHeight) : window.innerHeight), p = content.fn;
-  CX = SP.cx.x; CY = Math.min(Hh, barTop()) - (K.dialY || 0);   // on the top edge of the zone bar; Settings → dial position moves it up
+  CX = SP.cx.x; CY = SP.cy.x;   // grows out of the pill and settles on the bottom edge of the screen (Settings → dial position moves it up)
+  const op = clamp(SP.op.x, 0, 1.15), sc = s0 + (1 - s0) * op, rop = clamp((op - 0.3) / 0.6, 0, 1);
   const a0 = SP.a0.x, a1 = SP.a1.x, idx = (a0 + a1) / 2, l2 = clamp(SP.l2.x, 0, 1.2), pr = clamp(SP.press.x, 0, 1.2);
   const stretch = clamp(Math.abs(SP.cx.v) / 3200, 0, 0.32), dir = Math.sign(SP.cx.v) || 1;
   const m0 = R.m0, m1 = R.m1 - l2 * 34, o0 = R.o0 - l2 * 34 + (1 - l2) * 24, o1 = R.o1 - l2 * 10;
-  const col = content.na ? '#8A9098' : colOf(p);
+  const col = content.na ? '#8A9098' : colOf(p), tcolNow = p.temp ? colOf(p) : null;
   const clip = sector(CX, CY, 0, R.o1 + 30, a0, a1);
   const [ix, iy] = pt(CX, CY, (l2 > 0.5 ? o1 : m1) + 12, idx);
   const tri = `<path d="M0,-9 L8,7 L-8,7 Z" class="kd-idx" style="fill:${col}" transform="translate(${ix} ${iy}) rotate(${270 - idx})"/>`;
   const span = a1 - a0, quarter = span < 135, leftQ = quarter && idx < 90;
-  let cxI, cyI, anc = 'middle', lx, ly;
-  if (!quarter) { [cxI, cyI] = pt(CX, CY, R.inner * 0.55, idx); lx = cxI; ly = cyI + 15; cyI -= 7; }
-  else { const f = R.inner / 72; cxI = CX + (leftQ ? 28 : -28) * f; cyI = CY - 44 * f; lx = CX + (leftQ ? 8 : -8) * f; ly = CY - 16 * f; anc = leftQ ? 'start' : 'end'; }
-  const isz = (K.iconSize || 100) / 100;
-  const lightFill = pr > 0.02 && content.flash && content.flash.on && p.colF;   // temperature colours are light: dark icon on them
-  const fill = pr > 0.02 ? (content.flash && content.flash.on ? col : '#5a5f68') : '#1B1F24';
+  let cxI, cyI;
+  if (!quarter) { cxI = CX; cyI = CY - R.inner * 0.42; }
+  else { const f = R.inner / 72; cxI = CX + (leftQ ? 8 : -8) * f; cyI = CY - 30 * f; }
+  const S2 = (x, y) => [CX + (x - CX) * sc, CY + (y - CY) * sc];   // HTML follows the morph scale
+  [cxI, cyI] = S2(cxI, cyI);
+  const isz = (K.iconSize || 100) / 100 * sc;
+  const flashing = pr > 0.5 && content.flash;
+  // inner disc: temperature zones keep their temperature colour and show the value; other zones show only the icon
+  const fill = p.temp && !content.na ? (pr > 0.02 && content.flash && !content.flash.on ? '#5a5f68' : tcolNow) : pr > 0.02 ? (content.flash && content.flash.on ? col : '#5a5f68') : '#1B1F24';
   const layer2 = l2 > 0.5 && content.second;
-  const label = pr > 0.5 && content.flash ? content.flash.short : layer2 ? (p.short2 || p.short) : p.short;
-  const fg = lightFill ? '#0B0C0E' : '#fff';
+  const fg = p.temp || (pr > 0.02 && content.flash && content.flash.on && p.colF) ? '#0B0C0E' : '#fff';
+  const tv = p.temp ? H.state().clim[p.key === 'driver' ? 'dT' : 'pT'] : 0;
+  const showTemp = p.temp && !content.na && !flashing;
+  const disc = showTemp
+    ? `<span class="kd-tv" style="left:${cxI}px;top:${cyI}px;font-size:${(quarter ? 24 : 28) * isz}px;color:${fg};transform:translate(${quarter ? (leftQ ? '0' : '-100%') : '-50%'}, -50%)">${tv <= 16 ? 'LO' : tv >= 28 ? 'HI' : (tv % 1 ? tv.toFixed(1) : tv)}<sup>°</sup></span>`
+    : `<span class="kd-ic ms" aria-hidden="true" style="left:${quarter ? cxI + (leftQ ? 18 : -18) * isz : cxI}px;top:${cyI}px;font-size:${30 * isz}px;color:${fg}">${content.na ? 'block' : flashing ? content.flash.icon : layer2 ? (content.second.ic || p.ic) : p.ic}</span>`;
   dial.innerHTML = `<svg width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}" aria-hidden="true">
     <defs><clipPath id="kdClip"><path d="${clip}"/></clipPath></defs>
-    <g transform="translate(${CX} ${CY}) scale(${1 + stretch} ${1 - stretch * 0.35}) translate(${-CX - dir * stretch * 40} ${-CY})">
-      <path d="${sector(CX, CY, 0, R.o1 + 8, a0, a1)}" class="kd-bg"/>
+    <g transform="translate(${CX} ${CY}) scale(${sc * (1 + stretch)} ${sc * (1 - stretch * 0.35)}) translate(${-CX - dir * stretch * 40} ${-CY})">
+      <g opacity="${rop}"><path d="${sector(CX, CY, 0, R.o1 + 8, a0, a1)}" class="kd-bg"/>
       ${ring(content.main, SP.rot.x, m0, m1, a0, a1, idx, col, l2 > 0.05 ? 1 - 0.55 * Math.min(1, l2) : 1, l2 > 0.5)}
       ${l2 > 0.02 ? ring(content.second, SP.rot2.x, o0, o1, a0, a1, idx, col, Math.min(1, l2), false) : ''}
+      ${tri}</g>
       <path d="${sector(CX, CY, 0, R.inner * (1 + pr * 0.08), a0, a1)}" style="fill:${fill}" class="kd-inner"/>
-      ${tri}
     </g></svg>
-    <span class="kd-ic ms" aria-hidden="true" style="left:${cxI}px;top:${cyI}px;font-size:${26 * isz}px;color:${fg}">${content.na ? 'block' : pr > 0.5 && content.flash ? content.flash.icon : layer2 ? (content.second.ic || p.ic) : p.ic}</span>
-    <span class="kd-lbl" style="left:${lx}px;top:${ly}px;font-size:${12 * isz}px;color:${fg};transform:translate(${anc === 'start' ? '0' : anc === 'end' ? '-100%' : '-50%'}, -50%)">${esc(label)}</span>`;
+    ${disc}`;
 }
 const zoneX = z => (z + 0.5) / NZ * window.innerWidth;
 const slotShape = z => {
@@ -383,42 +408,64 @@ const slotShape = z => {
 };
 const curFn = () => { if (zone == null) zone = 0; return active()[zone]; };
 function setTargets(sh) { SP.cx.t = sh.cx; SP.a0.t = sh.a0; SP.a1.t = sh.a1; }
+const bottomY = () => { const vv = window.visualViewport; return Math.round(vv && vv.height ? Math.min(vv.height, window.innerHeight) : window.innerHeight) - (K.dialY || 0); };
+function pillAt(z) {   // where the pill rests (centre and radius), so the dial can grow out of it and shrink back into it
+  const el = document.querySelector(`#bar .zp[data-i="${z}"]`), b = document.getElementById('bar').getBoundingClientRect();
+  const h = el ? el.offsetHeight : 68;
+  return { x: zoneX(z), y: b.top + b.height / 2, r: h / 2 };
+}
+const CIRCLE = { a0: -89.9, a1: 269.9 };   // the pill as a full disc: the start and end shape of the morph
 function showDial(kind, extra) {
   const p = curFn(), s = H.state();
   const main = p.main(s), second = p.second ? p.second(s) : null;
-  const wasHidden = !visible || !content || content.fn !== p;
+  const fresh = !visible || closing || dialZone !== zone;
+  if (fresh) {
+    if (dialZone !== null && dialZone !== zone) finishClose();
+    const pa = pillAt(zone);
+    s0 = clamp(pa.r / R.inner, 0.2, 1);
+    if (!visible || dialZone !== zone) { Object.assign(SP.cx, { x: pa.x, v: 0 }); Object.assign(SP.cy, { x: pa.y, v: 0 }); Object.assign(SP.a0, { x: CIRCLE.a0, v: 0 }); Object.assign(SP.a1, { x: CIRCLE.a1, v: 0 }); Object.assign(SP.op, { x: 0, v: 0 }); }
+    dialZone = zone; pushing = true; closing = false; lit = false;
+    paintBar(s);
+  }
   content = { fn: p, main, second, flash: kind === 'press' ? extra : null, na: kind === 'na' ? extra : null };
-  setTargets(slotShape(zone));
+  setTargets(slotShape(zone)); SP.cy.t = bottomY(); SP.op.t = 1;
   SP.rot.t = main.cur; SP.rot2.t = second ? second.cur : 0;
   SP.l2.t = kind === 'second' ? 1 : 0;
   if (kind === 'press') { SP.press.t = 1; clearTimeout(showDial.pt); showDial.pt = setTimeout(() => { SP.press.t = 0; kick(); }, 1000); }
-  if (wasHidden) { SP.rot.x = SP.rot.t; SP.rot2.x = SP.rot2.t; if (!visible) { SP.cx.x = SP.cx.t; SP.a0.x = SP.a0.t; SP.a1.x = SP.a1.t; } }
+  if (fresh) { SP.rot.x = SP.rot.t; SP.rot2.x = SP.rot2.t; }
   dial.style.setProperty('--fc', colOf(p, s));
   visible = true; dial.classList.add('show');
   clearTimeout(hideT); hideT = setTimeout(hideDial, kind === 'na' ? 2200 : 2000);
-  if (kind === 'na') showReason(extra); else if (kind !== 'arrive') hint.classList.remove('show');
+  if (kind === 'na') showReason(extra); else hint.classList.remove('show');
   kick();
 }
-function preview() { if (zone == null) zone = 0; setTargets(slotShape(zone)); showDial('main'); snap(); drawDial(); }
-function hideDial() { visible = false; dial.classList.remove('show'); SP.l2.t = 0; kick(); }
+function preview() { if (zone == null) zone = 0; showDial('main'); }
+function hideDial() {   // shrink back into the pill; the neighbours return to full size at the same time
+  if (!visible || closing || dialZone == null) return;
+  clearTimeout(hideT);
+  closing = true; pushing = false;
+  const pa = pillAt(dialZone);
+  SP.cx.t = pa.x; SP.cy.t = pa.y; SP.a0.t = CIRCLE.a0; SP.a1.t = CIRCLE.a1; SP.op.t = 0; SP.l2.t = 0;
+  paintBar(H.state()); kick();
+}
+function finishClose() { closing = false; visible = false; dialZone = null; pushing = false; content = null; dial.classList.remove('show'); dial.innerHTML = ''; paintBar(H.state()); }
 let hintT;
 function hintAt(html, col) {
   const W = window.innerWidth, x = zone === 0 ? 150 : zone === NZ - 1 ? W - 150 : zoneX(zone);
   hint.style.setProperty('--gc', col); hint.innerHTML = html;
-  hint.style.bottom = Math.round(window.innerHeight - barTop() + (K.dialY || 0) + R.o1 + 16) + 'px';
+  hint.style.bottom = Math.round(visible && !closing ? (K.dialY || 0) + R.o1 + 16 : window.innerHeight - barTop() + 8) + 'px';   // above the dial, or just above the pills
   hint.style.left = clamp(x, 268, W - 268) + 'px'; hint.classList.add('show');
   clearTimeout(hintT); hintT = setTimeout(() => hint.classList.remove('show'), 3000);
 }
 function showHints() { const p = curFn(); hintAt(`<span class="kh-n">${msI(p.ic)}${esc(p.n)}</span>` + p.hints.map(([g, a]) => `<span><b>${g}</b> ${a}</span>`).join(''), colOf(p)); }
 function showReason(na) { hintAt(`<span class="kh-na"><b>${esc(na.item)}</b> ${esc(na.reason)}</span>`, '#F0605A'); }
-window.addEventListener('resize', () => { if (zone !== null) { setTargets(slotShape(zone)); snap(); drawDial(); } });
+window.addEventListener('resize', () => { if (visible && !closing) { setTargets(slotShape(zone)); SP.cy.t = bottomY(); snap(); drawDial(); } paintBar(H.state()); });
 
 /* ---------- run one gesture on the selected zone ---------- */
 function fire(g, k) {
   if (zone === null) zone = 0;
   if (TUT.on) { TUT.got(g); return; }
   const p = active()[zone], st = H.state();
-  lit = true; clearTimeout(litT); litT = setTimeout(() => { lit = false; paintBar(H.state()); }, 2600);
   if (!p[g]) { showDial('na', { item: g === 'press' ? 'Press' : 'Hold + turn', reason: 'not used on ' + p.n }); paintBar(st); trace(g + ':' + p.key + ':none'); return; }
   try {
     const r = p[g](st, k);
@@ -442,14 +489,11 @@ document.addEventListener('pointermove', e => {
   if (zone !== null && z !== zone && Math.abs(f - (zone + 0.5) / NZ) < 0.5 / NZ + 0.03) z = zone;
   if (z === zone) return;
   zone = z;
+  if (visible) hideDial();                                          // the open dial shrinks back into its pill
   lightEdge();
   if (TUT.on) { TUT.slid(zone); return; }
   trace('slide:' + curFn().key);
-  showDial('arrive');
-  setTargets(slotShape(zone));
-  showHints();
-  clearTimeout(hideT); hideT = setTimeout(hideDial, 2600);
-  kick();
+  showHints();                                                      // the dial opens only on turn / press / hold + turn
 }, { passive: true });
 
 /* ---------- turn / hold and turn ---------- */
@@ -594,7 +638,7 @@ const CFG = (() => {
     if (c && c.dataset.c === 'save') {
       if (H.state().car.moving) { close(); H.toast('lock', 'Car is moving: zones unchanged'); return; }
       Object.assign(K, draft); fixSlots(); saveK(); close();
-      zone = null; content = null; hideDial(); H.render(); H.toast('tune', 'Knob zones saved');
+      if (visible) finishClose(); zone = null; H.render(); H.toast('tune', 'Knob zones saved');
       trace('config:' + [K.s1, K.s2, K.s3].join(','));
     }
   });
@@ -612,7 +656,7 @@ const CFG = (() => {
 const reset0 = H.reset;
 H.reset = function () {
   if (TUT.on) TUT.stop();
-  clearTimeout(parkT); FN.nav.i = -1; FN.nav.list = 'fav';
+  clearTimeout(parkT); FN.nav.i = -1; FN.nav.list = 'fav'; if (visible) finishClose();
   const r = reset0.apply(this, arguments); X(H.state()); H.renderBar(); return r;
 };
 

@@ -170,32 +170,52 @@ html.knob-nocursor, html.knob-nocursor * { cursor: none !important; }
 #kHint { bottom: calc(6px + 190px); }
 
 /* =================== SK3: zone bar, home tiles, Home in the rail =================== */
-/* zone bar: five pills, each centred over its knob zone (equal fifths of the screen) */
-#bar { padding: 0 0 var(--sab); overflow: visible; }
-#bar .zb3 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; width: 100%; height: 100%; }
+/* zone bar (SK-3.1.0): no bar behind the pills; the stage runs to the bottom edge and the pills float on it */
+#app { grid-template-rows: minmax(0, 1fr) 0; }
+#stage { border-radius: 0; }
+#main { bottom: calc(108px + var(--sab)); }
+#rail { bottom: calc(108px + var(--sab)); }
+#bar { position: fixed; left: 0; right: 0; bottom: 0; height: calc(100px + var(--sab)); padding: 0; background: transparent; overflow: visible; pointer-events: none; z-index: 40; }
+#bar .zb3 { position: absolute; left: 0; right: 0; top: 0; height: 100px; }
 #bar .zp {
   --pc: #EDEEF0;
-  justify-self: center; height: 68px; min-width: 150px; max-width: calc(20vw - 18px); padding: 0 22px; border-radius: 34px;
-  display: flex; align-items: center; justify-content: center; background: var(--bar-pill); color: var(--bar-tx);
-  transition: transform .34s cubic-bezier(.3, 1.5, .5, 1), box-shadow .25s, background-color .45s, color .3s;
+  position: absolute; top: 50%; transform: translate(-50%, -50%); pointer-events: auto;
+  height: 64px; min-width: 0; max-width: calc(20vw - 18px); padding: 0 22px; border-radius: 32px;
+  display: flex; align-items: center; justify-content: center; color: var(--tx);
+  background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-edge); box-shadow: var(--glass-shadow);
+  transition: left .42s cubic-bezier(.3, 1.35, .5, 1), transform .34s cubic-bezier(.3, 1.5, .5, 1), opacity .18s, height .3s, padding .3s, background-color .45s, color .3s, box-shadow .25s;
 }
 #bar .zp-in { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; min-width: 0; text-align: left; }
 #bar .zp-in > .ms { grid-row: span 2; font-size: 26px; color: var(--pc); }
 #bar .zp b { font-size: 17px; font-weight: 600; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#bar .zp small { font-size: 11px; font-weight: 600; letter-spacing: .06em; line-height: 1.3; color: var(--bar-tx2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#bar .zp small { font-size: 11px; font-weight: 600; letter-spacing: .06em; line-height: 1.3; color: var(--tx2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* temperature pills: circles filled with the temperature colour (16° light blue → 22° neutral → 28° light red) */
-#bar .zp.tp { width: 84px; height: 84px; min-width: 0; padding: 0; border-radius: 50%; background: var(--pc); color: #0B0C0E; }
+#bar .zp.tp { width: 80px; height: 80px; padding: 0; border-radius: 50%; background: var(--pc); border-color: transparent; color: #0B0C0E; }
 #bar .zp.tp .zp-in { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
-#bar .zp.tp b { font-size: 27px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; overflow: visible; }
-#bar .zp.tp sup { font-size: 15px; font-weight: 500; vertical-align: 9px; }
+#bar .zp.tp b { font-size: 26px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; overflow: visible; }
+#bar .zp.tp sup { font-size: 14px; font-weight: 500; vertical-align: 9px; }
 #bar .zp.tp small { display: flex; align-items: center; gap: 2px; font-size: 10px; color: rgba(11, 12, 14, .66); }
 #bar .zp.tp small .ms { font-size: 13px; color: #B5361A; font-variation-settings: "FILL" 1, "wght" 500; }
-#bar .zp.tp.off { background: var(--bar-pill); color: var(--bar-tx2); }
+#bar .zp.tp.off { background: var(--glass-bg); border-color: var(--glass-edge); color: var(--tx2); }
 #bar .zp.tp.off b { font-size: 18px; }
-#bar .zp.tp.off small { color: var(--bar-off); }
-/* the active zone grows and lifts; the SK2 dial rises above it */
-#bar .zp.act { transform: translateY(-6px) scale(1.1); box-shadow: 0 0 0 3px var(--bar-bg), 0 0 0 5px var(--pc), 0 12px 28px rgba(0, 0, 0, .5); }
+#bar .zp.tp.off small { color: var(--tx3); }
+/* slide: the pill under the knob grows a little */
+#bar .zp.act { transform: translate(-50%, -50%) scale(1.12); box-shadow: 0 0 0 3px var(--map), 0 0 0 5px var(--pc), 0 12px 28px rgba(0, 0, 0, .45); }
+/* the pill that is open as the dial is hidden (the dial grew out of it) */
+#bar .zp.gone { opacity: 0; transform: translate(-50%, -50%) scale(.8); pointer-events: none; transition: left .42s cubic-bezier(.3, 1.35, .5, 1), transform .2s, opacity .12s; }
+/* while a dial is open, the other pills slide aside and shrink to their icon */
+#bar .zp.mini { height: 54px; width: 54px; padding: 0; border-radius: 27px; }
+#bar .zp.mini .zp-in { display: flex; justify-content: center; }
+#bar .zp.mini b, #bar .zp.mini small { display: none; }
+#bar .zp.mini .zp-in > .ms { font-size: 24px; }
+#bar .zp.tp.mini { width: 54px; height: 54px; }
+#bar .zp.tp.mini b { display: block; font-size: 17px; }
+#bar .zp.tp.mini sup { font-size: 10px; vertical-align: 5px; }
 @media (prefers-reduced-motion: reduce) { #bar .zp { transition: none; } }
+/* temperature value in the dial's inner disc */
+#kDial .kd-tv { position: absolute; font-family: var(--font-ui, system-ui), sans-serif; font-weight: 600; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; pointer-events: none; }
+#kDial .kd-tv sup { font-size: .55em; font-weight: 500; vertical-align: .6em; }
+#kDial { transition: none; }
 
 /* home: media card · app tiles · map */
 .home3 { position: absolute; inset: 0; }
