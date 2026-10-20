@@ -5,7 +5,7 @@
 'use strict';
 
 const BUILD = Object.assign({ id: 'TB-dev', line: 'TB', name: 'Touch Baseline' }, window.HMI_CONFIG || {});
-const EXT = { settings: [], actions: {}, afterRender: [] };   // filled by HMI.extend()
+const EXT = { settings: [], actions: {}, afterRender: [], bar: null, home: null, railEnd: null };   // filled by HMI.extend()
 
 /* ---------- preferences (per device) ---------- */
 const store = {
@@ -210,11 +210,12 @@ function renderRail() {
     <button class="rb" ${A('noop')} aria-label="Profile">${ms('person')}</button>
     <span class="grow"></span>
     <button class="lock ${!S.locked ? 'on' : ''}" ${A('lock', 'unlock')} aria-label="Unlock" aria-pressed="${!S.locked}">${ms('lock_open')}</button>
-    <button class="lock ${S.locked ? 'on' : ''}" ${A('lock', 'lock')} aria-label="Lock" aria-pressed="${S.locked}">${ms('lock')}</button>`;
+    <button class="lock ${S.locked ? 'on' : ''}" ${A('lock', 'lock')} aria-label="Lock" aria-pressed="${S.locked}">${ms('lock')}</button>${EXT.railEnd ? EXT.railEnd(S) : ''}`;
 }
 
 /* ---------- climate bar ---------- */
 function renderBar() {
+  if (EXT.bar) { const h = EXT.bar(S); if (h != null) $('#bar').innerHTML = h; return; }   // SK3: zone bar instead of climate bar + dock (may update in place)
   const c = S.clim, m = S.media;
   const tp = side => {
     const v = side === 'd' ? c.dT : c.pT, who = side === 'd' ? 'Driver' : 'Passenger', on = side === 'd' ? c.dOn : c.pOn;
@@ -587,7 +588,7 @@ function render() {
   applyTheme();
   renderRail();
   renderBar();
-  const view = { home, nav, media, phone, climate, vehicle, settings }[S.screen];
+  const view = { home: EXT.home ? () => EXT.home(home, S) : home, nav, media, phone, climate, vehicle, settings }[S.screen];
   const anim = S.screen !== lastScreen;
   lastScreen = S.screen;
   const main = $('#main');
@@ -843,7 +844,8 @@ window.HMI = {
   app: BUILD.line, build: BUILD.id,
   root: $('#app'),
   state: () => S,
-  data: { tracks: TRACKS, usb: USB, fms: FMS, poi: PB, favorites: FAVORITES, chargers: CHARGERS, dmodes: DMODES, esp: ESP },
+  data: { tracks: TRACKS, usb: USB, fms: FMS, poi: PB, favorites: FAVORITES, chargers: CHARGERS, dmodes: DMODES, esp: ESP, contacts: CB },
+  act: (name, v) => ACT[name](v),
   prefs: () => ({ theme: themeNow(), accent: PREF.accent }),
   lock: LOCK,
   reset() { S = fresh(); lastScreen = null; lastLeg = -1; $('#pop').hidden = true; render(); },
@@ -852,7 +854,10 @@ window.HMI = {
   toast: (icon, text) => toast(ms(icon), text),
   locked: () => LOCK.trial,
   /* for add-on layers (SK knob): extra Settings rows, extra actions, code to run after each render */
-  extend({ settings, actions, afterRender } = {}) {
+  extend({ settings, actions, afterRender, bar, home, railEnd } = {}) {
+    if (bar) EXT.bar = bar;
+    if (home) EXT.home = home;
+    if (railEnd) EXT.railEnd = railEnd;
     if (settings) EXT.settings.push(settings);
     if (actions) Object.assign(EXT.actions, actions);
     if (afterRender) EXT.afterRender.push(afterRender);

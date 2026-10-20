@@ -1,4 +1,4 @@
-/* PhygitalHMI — timed tasks, shared by TB, SK1 and SK2.
+/* PhygitalHMI — timed tasks, shared by TB, SK1, SK2 and SK3.
    Each task: id, level, the instruction read to the participant, and a success check
    ok(state, startState, data) run against the app state while the trial is running.
    IDs keep the original numbering from the field-study protocol; T7 and T8 (defrost)

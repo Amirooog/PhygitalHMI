@@ -4,7 +4,7 @@ Version names: `LINE-MAJOR.MINOR.PATCH` (e.g. `TB-3.0.0`).
 
 | Part | Meaning |
 |---|---|
-| **LINE** | Which prototype. `TB` Touch Baseline · `SK` Sliding Knob (app lines SK1 and SK2) · `XP` experiments that never go to participants |
+| **LINE** | Which prototype. `TB` Touch Baseline · `SK` Sliding Knob (app lines SK1, SK2 and SK3) · `XP` experiments that never go to participants |
 | **MAJOR** | Anything that changes a **task path**: where a control is, how many steps a task takes, what a control shows (label vs icon), gestures. **Trial data from different majors must not be pooled.** |
 | **MINOR** | Visible change that leaves every task path intact: styling, new screens or options that are off by default, researcher tools. |
 | **PATCH** | Bug fix. If a fix changes what a participant could do (e.g. a control that did not work), note it — trials run on the broken build for that task are invalid. |
@@ -13,6 +13,15 @@ Rules
 - The build id is stamped into every trial and the CSV `build` column, together with theme and accent colour.
 - Freeze a build before data collection starts: `tools/freeze.sh <app>` copies it with shared/ to `releases/<id>/`; change nothing in a frozen build until collection ends (fixes get a new version).
 - Each app folder ships its `index.html` and `sw.js` together; the id in both must match.
+
+## SK-3.0.0 (20 Oct 2026, frozen) — new app line SK3
+Redesign after the 19 Oct test (TB → SK1 → SK2, 8 participants), from Amir's wireframe of 20 Oct.
+- **Zone bar replaces the dock and the climate bar.** Five pills sit over the five knob zones (equal fifths of the screen): Driver temp · zone 2 · zone 3 · zone 4 · Passenger temp. Pills show live values; the active pill grows and lifts. Tapping a pill opens its page (touch still works).
+- **Temperature colour:** temperature pills and their dial blend from light blue (16°) through neutral (22°) to light red (28°) at every 0.5° step; a side that is off is grey.
+- **Dial kept from SK2** (quarter circle at the ends, half circle in the middle, three rings, spring motion); it now rises from the top edge of the zone bar.
+- **Home:** media card · app tiles (Phone, Charging, Climate, Vehicle, Settings) · map. Home button in the rail under Lock / Unlock.
+- **Customizable zones 2–4** (parked only), defaults Drive mode · Media · Phone. Options: Drive mode, Media, Phone (favourites, call / end), Navigation, Autopark (start < 10 km/h), Driver assist (gap, ACC, lane keep; Off only parked), Ambient light, Airflow & defrost, Windows & sunroof, Seat & massage. SK2's seat ventilation slot is dropped.
+- Shared code: optional hooks in `HMI.extend` (`bar`, `home`, `railEnd`), `HMI.act()`, contacts in `HMI.data`; TB, SK1 and SK2 are unchanged. Researcher: SK3 trials counted in the participants list and CSV (`trials_SK3`); order label `SK3`.
 
 ## SK-2.2.1 (19 Oct 2026, frozen)
 - Dial icon and label are now HTML over the dial instead of SVG text (iPad Safari did not reliably turn icon-font words into icons inside SVG).

@@ -19,6 +19,7 @@ The earlier touch app (TB-1.x and TB-2.x) lives in the separate repo `cabin-hmi`
 | `tb/` | Touch Baseline app (installs as its own home-screen app) |
 | `sk/` | Sliding Knob 1 (SK1): the 14 Oct concept, installs as "Knob 1" |
 | `sk2/` | Sliding Knob 2 (SK2): the Ch4 design, installs as "Knob 2" |
+| `sk3/` | Sliding Knob 3 (SK3): redesign after the 19 Oct test — zone bar instead of dock and climate bar, home tiles, 3 customizable zones; installs as "Knob 3" |
 | `xp/` | Experiments that never go to participants, one subfolder each (e.g. `xp/mouse-probe/`) |
 | `releases/` | Frozen copies made with `tools/freeze.sh` before data collection, e.g. `releases/SK-2.0.0/sk2/`. Never edited. |
 

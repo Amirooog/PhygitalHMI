@@ -23,7 +23,7 @@ const saveSes = () => { SES['cond_' + H.app] = SES.condition;  try { localStorag
    Names and background stay on this iPad and in their own CSV; the trial log only carries the ID (P01…),
    so trial data can be shared or analysed without names. */
 const PKEY = 'phmi.participants';
-const ORDER = 'TB-SK1-SK2';   // fixed order for every participant (Amir, 19 Oct 2026)
+const ORDER = H.app === 'SK3' ? 'SK3' : 'TB-SK1-SK2';   // fixed order for every participant (Amir, 19 Oct 2026); SK3 is a separate round
 const PF = [   // field, label, kind, options
   ['name', 'Name', 'text'], ['age', 'Age', 'num'],
   ['gender', 'Gender', 'seg', ['Female', 'Male', 'Other / prefer not']],
@@ -221,7 +221,7 @@ setInterval(() => {
 }, 150);
 
 /* ---------- participant panel parts ---------- */
-const trialsOf = id => { const n = { TB: 0, SK1: 0, SK2: 0 }; LOG.all().forEach(r => { const a = r.app === 'SK' ? 'SK1' : r.app; if (r.participant === id && n[a] != null) n[a]++; }); return n; };
+const trialsOf = id => { const n = { TB: 0, SK1: 0, SK2: 0, SK3: 0 }; LOG.all().forEach(r => { const a = r.app === 'SK' ? 'SK1' : r.app; if (r.participant === id && n[a] != null) n[a]++; }); return n; };
 function msgP(t) { const m = rp.querySelector('#pMsg'); if (m) m.textContent = t || ''; }
 function readForm() {
   if (!editing) return;
@@ -249,10 +249,10 @@ function participantBlock() {
     ? `<div class="pcur"><b>${esc(cur.id)} · ${esc(cur.name)}</b><span>${[cur.age && cur.age + ' y', cur.gender, ORDER, cur.consent === 'Yes' ? 'consent ✓' : 'NO CONSENT YET'].filter(Boolean).map(esc).join(' · ')}</span>
         <div class="rfr"><button class="rb" data-r="pedit" data-v="${esc(cur.id)}">Edit</button></div></div>`
     : `<div class="pcur warn"><b>${SES.participant ? esc(SES.participant) + ' (not in the list)' : 'No participant selected'}</b><span>Add or select a participant before running tasks.</span></div>`;
-  const rows = PPL.map(p => { const n = trialsOf(p.id); return `<tr class="${p.id === SES.participant ? 'on' : ''}"><td>${esc(p.id)}</td><td>${esc(p.name)}</td><td>${esc(p.age || '')}</td><td>${p.consent === 'Yes' ? '✓' : '—'}</td><td>${n.TB} / ${n.SK1} / ${n.SK2}</td>
+  const rows = PPL.map(p => { const n = trialsOf(p.id); return `<tr class="${p.id === SES.participant ? 'on' : ''}"><td>${esc(p.id)}</td><td>${esc(p.name)}</td><td>${esc(p.age || '')}</td><td>${p.consent === 'Yes' ? '✓' : '—'}</td><td>${n.TB} / ${n.SK1} / ${n.SK2} / ${n.SK3}</td>
       <td class="pact"><button class="rb ${p.id === SES.participant ? 'a' : ''}" data-r="psel" data-v="${esc(p.id)}">${p.id === SES.participant ? 'Selected' : 'Select'}</button><button class="rb" data-r="pedit" data-v="${esc(p.id)}">Edit</button></td></tr>`; }).join('');
   return `<section><h4>Participant</h4>${curLine}
-    <div class="rtw"><table><thead><tr><th>ID</th><th>Name</th><th>Age</th><th>Consent</th><th>Trials TB / SK1 / SK2</th><th></th></tr></thead><tbody>
+    <div class="rtw"><table><thead><tr><th>ID</th><th>Name</th><th>Age</th><th>Consent</th><th>Trials TB / SK1 / SK2 / SK3</th><th></th></tr></thead><tbody>
       ${rows || '<tr><td colspan="6" class="rnote">No participants yet.</td></tr>'}</tbody></table></div>
     <div class="rfr"><button class="rb a" data-r="pnew">+ New participant</button><button class="rb" data-r="pexport" ${PPL.length ? '' : 'disabled'}>Export participants CSV</button></div>
     <div id="pMsg" class="rnote"></div></section>`;
@@ -260,8 +260,8 @@ function participantBlock() {
 function pplCsv() {
   const q = v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
   const cols = ['id', 'name', 'age', 'gender', 'years', 'drives', 'touchcar', 'hand', 'glasses', 'order', 'consent', 'notes', 'created'];
-  const head = ['id', 'name', 'age', 'gender', 'years_driving', 'drives', 'touchscreen_car', 'handedness', 'glasses', 'order', 'consent', 'notes', 'created_at', 'trials_TB', 'trials_SK1', 'trials_SK2'];
-  return [head.join(','), ...PPL.map(p => { const n = trialsOf(p.id); return [...cols.map(c => q(c === 'order' ? ORDER : p[c])), n.TB, n.SK1, n.SK2].join(','); })].join('\n');
+  const head = ['id', 'name', 'age', 'gender', 'years_driving', 'drives', 'touchscreen_car', 'handedness', 'glasses', 'order', 'consent', 'notes', 'created_at', 'trials_TB', 'trials_SK1', 'trials_SK2', 'trials_SK3'];
+  return [head.join(','), ...PPL.map(p => { const n = trialsOf(p.id); return [...cols.map(c => q(c === 'order' ? ORDER : p[c])), n.TB, n.SK1, n.SK2, n.SK3].join(','); })].join('\n');
 }
 async function shareCsv(name, text) {
   try {
