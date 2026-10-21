@@ -337,7 +337,7 @@ document.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefaul
 let mouseDown = false;
 document.addEventListener('pointerdown', e => { mouseDown = e.pointerType === 'mouse'; }, true);
 document.addEventListener('click', e => {
-  if (K.blockClicks && mouseDown && !e.target.closest('#rp, #rovl, #kTut, #kCal')) { e.stopPropagation(); e.preventDefault(); }
+  if (K.blockClicks && mouseDown && !(window.PHMI_CTRL && PHMI_CTRL.on) && !e.target.closest('#rp, #rovl, #kTut, #kCal')) { e.stopPropagation(); e.preventDefault(); }
 }, true);
 
 /* a fresh trial starts with the screen on and nothing pending */

@@ -385,7 +385,7 @@ document.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefaul
 let mouseDown = false;
 document.addEventListener('pointerdown', e => { mouseDown = e.pointerType === 'mouse'; }, true);
 document.addEventListener('click', e => {
-  if (K.blockClicks && mouseDown && !e.target.closest('#rp, #rovl, #kTut, #kCal, #kCfg')) { e.stopPropagation(); e.preventDefault(); }
+  if (K.blockClicks && mouseDown && !(window.PHMI_CTRL && PHMI_CTRL.on) && !e.target.closest('#rp, #rovl, #kTut, #kCal, #kCfg')) { e.stopPropagation(); e.preventDefault(); }
 }, true);
 
 /* ---------- tutorial: slide, turn, press, hold and turn (Settings → Knob · tutorial) ---------- */

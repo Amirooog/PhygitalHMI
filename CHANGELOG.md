@@ -14,6 +14,9 @@ Rules
 - Freeze a build before data collection starts: `tools/freeze.sh <app>` copies it with shared/ to `releases/<id>/`; change nothing in a frozen build until collection ends (fixes get a new version).
 - Each app folder ships its `index.html` and `sw.js` together; the id in both must match.
 
+## SK-1.1.0 · SK-2.3.0 · SK-3.3.0 (21 Oct 2026, frozen)
+- **Hold Ctrl = touch mode** (all three knob apps, for the desktop / demo setup; `shared/ctrlmode.js`). While Ctrl is held the cursor shows, clicks reach the screen like taps, the wheel scrolls the list under the cursor (Ctrl + wheel no longer zooms the page), and slide and the middle button are ignored. A "Touch mode" chip shows at the top. Releasing Ctrl returns to the knob; the zone stays where it was until the knob slides again. Clicks in touch mode are not logged as touches. Task paths unchanged.
+
 ## SK-3.2.0 (20 Oct 2026, frozen)
 - **Zone count from the capacity formula (thesis Ch4):** N = min(N_physical, N_perceptual), N_physical = ⌊screen width ÷ minimum zone width⌋ (default 230 px), N_perceptual = 2k − 1 with k tactile landmarks on the rail (default 3 → 5). At least the 3 core positions. iPad (1180 px): min(5, 5) = 5. A wider screen raises N_physical; the count rises once the rail has more landmarks (e.g. 2560 px with k = 5 → 9 zones). Settings → Knob · zone capacity: min zone width and landmarks steppers, the formula live, and a "Show" badge; the badge also appears whenever a resize changes the count.
 - **Middle zones by priority**, filled from the centre outwards (1st centre, 2nd left, 3rd right…). Default priority: Media, Drive mode, Phone, Navigation, Airflow, Seat, Driver assist, Autopark, Ambient, Windows. The customization page shows as many zones as the screen allows.
